@@ -32,6 +32,11 @@ export function CopilotProvider({ children }) {
   const [currentFilters, setCurrentFilters] = useState({});
   const [conversationId, setConversationId] = useState(null);
 
+  // Filter setter for Feed and other components
+  const setFilters = useCallback((filters) => {
+    setCurrentFilters(filters);
+  }, []);
+
   // Client-side tool registry
   const [toolHandlers, setToolHandlers] = useState({});
 
@@ -71,9 +76,10 @@ export function CopilotProvider({ children }) {
     setCurrentPage,
     currentFilters,
     setCurrentFilters,
+    setFilters,
     conversationId,
     setConversationId,
-    
+
     // Registry handlers
     toolHandlers,
     registerToolHandler,
