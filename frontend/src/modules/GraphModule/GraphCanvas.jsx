@@ -378,6 +378,78 @@ const GraphCanvas = forwardRef(({
       if (!cy) return;
       cy.elements().removeClass('highlighted').removeClass('suspicious-flag');
     },
+    highlightMoneyTrail: (txIds, nodeIds) => {
+      const cy = cyRef.current;
+      if (!cy) return;
+      cy.batch(() => {
+        cy.elements().removeClass('highlighted-trail').removeClass('dimmed');
+        cy.elements().addClass('dimmed');
+        
+        txIds.forEach(txId => {
+          const edge = cy.getElementById(String(txId));
+          if (edge.length > 0) {
+            edge.removeClass('dimmed').addClass('highlighted-trail');
+          }
+        });
+        
+        nodeIds.forEach(nodeId => {
+          const node = cy.nodes().filter(n => n.data('account_id') === String(nodeId) || n.id() === String(nodeId));
+          if (node.length > 0) {
+            node.removeClass('dimmed').addClass('highlighted-trail');
+          }
+        });
+      });
+    },
+    clearTrailHighlight: () => {
+      const cy = cyRef.current;
+      if (!cy) return;
+      cy.elements().removeClass('highlighted-trail').removeClass('dimmed');
+    },
+    focusNodes: (nodeIds) => {
+      const cy = cyRef.current;
+      if (!cy) return;
+      const matching = cy.nodes().filter(n => {
+        const accId = String(n.data('account_id') || '');
+        const id = String(n.id() || '');
+        return nodeIds.some(targetId => 
+          targetId && (accId.toLowerCase() === String(targetId).toLowerCase() || id.toLowerCase() === String(targetId).toLowerCase())
+        );
+      });
+      if (matching.length > 0) {
+        cy.animate({
+          fit: {
+            eles: matching,
+            padding: 120
+          },
+          duration: 600,
+          easing: 'ease-in-out-quad'
+        });
+      }
+    },
+    highlightSearch: (query) => {
+      const cy = cyRef.current;
+      if (!cy) return;
+      cy.batch(() => {
+        cy.elements().removeClass('highlighted-search').removeClass('dimmed-search');
+        if (!query || query.trim().length < 2) {
+          return;
+        }
+        const q = query.toLowerCase().trim();
+        cy.elements().addClass('dimmed-search');
+        
+        cy.nodes().forEach(node => {
+          const id = String(node.id()).toLowerCase();
+          const label = String(node.data('displayLabel') || node.data('label') || '').toLowerCase();
+          const accId = String(node.data('account_id') || '').toLowerCase();
+          const role = String(node.data('node_type') || '').toLowerCase();
+          
+          if (id.includes(q) || label.includes(q) || accId.includes(q) || role.includes(q)) {
+            node.removeClass('dimmed-search').addClass('highlighted-search');
+            node.connectedEdges().removeClass('dimmed-search').addClass('highlighted-search');
+          }
+        });
+      });
+    },
     
     // Replay functions
     applyReplayState: (index, replaySteps, primaryId) => {
@@ -645,7 +717,8 @@ const GraphCanvas = forwardRef(({
         nodeType: node.data('node_type') || 'account',
         label: node.data('label') || node.id(),
         risk: node.data('risk') || 0,
-        status: node.data('status')
+        status: node.data('status'),
+        ...node.data()
       });
     });
 
@@ -678,6 +751,7 @@ const GraphCanvas = forwardRef(({
     if (!container || !cy || !window.ResizeObserver) return undefined;
 
     const observer = new ResizeObserver(() => {
+      if (cy.isDestroyed()) return;
       cy.resize();
       if (nodes.length > 0) {
         cy.fit(cy.elements(), getGraphBounds(container).padding);
@@ -754,6 +828,7 @@ const GraphCanvas = forwardRef(({
       const layout = cy.layout(layoutConfig);
       if (replayMode) {
         layout.on('layoutstop', () => {
+          if (cy.isDestroyed()) return;
           cy.batch(() => {
             cy.elements().addClass('hidden-replay');
             const primaryNode = cy.nodes().filter(n => n.data('account_id') === primaryAccountId || n.data('node_type') === 'account');

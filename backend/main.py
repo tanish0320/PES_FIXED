@@ -7,6 +7,7 @@ import uvicorn
 
 from app.core.data_store import data_store
 from app.services.orchestrator import process_statement
+from app.engines.cross_statement_intelligence import CrossStatementIntelligenceEngine
 
 app = FastAPI(title="SENTINEL - AI Financial Investigation Workstation")
 
@@ -174,33 +175,118 @@ def get_investigation_stats() -> Dict[str, Any]:
 @app.get("/search")
 def search_entities(q: str = Query(..., min_length=1), type: str = "all") -> List[Dict[str, Any]]:
     """
-    Searches the index across account IDs, UPI IDs, names, merchants, and IFSC codes.
+    Searches across ALL uploaded investigations, including Cases, Transactions,
+    Entities, Reports, Timeline Events, and Graph Nodes.
     """
     results = []
     q_low = q.lower().strip()
+    if not q_low:
+        return []
+
+    # 1. Search Cases
+    cases = data_store.get("cases", {})
+    for cid, case in cases.items():
+        if q_low in cid.lower() or q_low in case.get("source_file", "").lower() or q_low in case.get("account_id", "").lower():
+            results.append({
+                "case_id": cid,
+                "type": "case",
+                "value": case.get("source_file", cid),
+                "context": f"Case File - Account {case.get('account_id')} (Risk: {case.get('risk_score')})",
+                "risk_score": case.get("risk_score", 0),
+                "risk_level": case.get("risk_level", "LOW")
+            })
+
+    # 2. Search Transactions
+    tx_store = data_store.get("transactions", {})
+    for tid, tx in tx_store.items():
+        desc = tx.get("description", "").lower()
+        sender = tx.get("sender_account", "").lower()
+        receiver = tx.get("receiver_account", "").lower()
+        if q_low in tid.lower() or q_low in desc or q_low in sender or q_low in receiver:
+            cid = tx.get("case_id", "global")
+            case = cases.get(cid, {})
+            results.append({
+                "case_id": cid,
+                "type": "transaction",
+                "value": f"{tx.get('channel', 'TRANSFER')} transaction of ₹{tx.get('amount')}",
+                "context": f"Narration: {tx.get('description')} ({tx.get('date').strftime('%Y-%m-%d') if hasattr(tx.get('date'), 'strftime') else tx.get('date')})",
+                "risk_score": case.get("risk_score", 0),
+                "risk_level": case.get("risk_level", "LOW")
+            })
+
+    # 3. Search Extracted Entities index
     search_index = data_store.get("search_index", {})
-    
     for key, entries in search_index.items():
         if q_low in key:
             for entry in entries:
                 if type == "all" or entry["type"] == type:
-                    case = data_store.get("cases", {}).get(entry["case_id"], {})
+                    case = cases.get(entry["case_id"], {})
                     results.append({
                         **entry,
                         "risk_score": case.get("risk_score", 0),
                         "risk_level": case.get("risk_level", "LOW")
                     })
-                    
+
+    # 4. Search Timeline Events
+    reports = data_store.get("reports", {})
+    for cid, report in reports.items():
+        case = cases.get(cid, {})
+        # Check standard timeline list
+        timeline = report.get("timeline", [])
+        for evt in timeline:
+            if q_low in evt.get("event", "").lower() or q_low in evt.get("counterparty", "").lower() or q_low in evt.get("description", "").lower():
+                results.append({
+                    "case_id": cid,
+                    "type": "timeline_event",
+                    "value": evt.get("event"),
+                    "context": f"Timeline Milestone - {evt.get('date')} {evt.get('time')} ({evt.get('event_type', 'Audit')})",
+                    "risk_score": case.get("risk_score", 0),
+                    "risk_level": case.get("risk_level", "LOW")
+                })
+
+    # 5. Search Graph Nodes
+    graphs = data_store.get("graphs", {})
+    for cid, graph in graphs.items():
+        case = cases.get(cid, {})
+        for node in graph.get("nodes", []):
+            # Check data contents
+            nd = node.get("data", {})
+            label = str(nd.get("label", "")).lower()
+            node_id = str(nd.get("id", "")).lower()
+            node_type = str(nd.get("nodeType", "")).lower()
+            if q_low in label or q_low in node_id or q_low in node_type:
+                results.append({
+                    "case_id": cid,
+                    "type": "graph_node",
+                    "value": nd.get("label", nd.get("id")),
+                    "context": f"Graph Node ({nd.get('nodeType', 'Account')}) - Case {case.get('source_file')}",
+                    "risk_score": case.get("risk_score", 0),
+                    "risk_level": case.get("risk_level", "LOW")
+                })
+
     # Deduplicate results
     deduped = []
     seen = set()
     for res in results:
-        uniq_key = (res["case_id"], res["type"], res["value"])
+        uniq_key = (res["case_id"], res["type"], str(res["value"]))
         if uniq_key not in seen:
             seen.add(uniq_key)
             deduped.append(res)
             
     return deduped
+
+@app.get("/cross-statement-intelligence")
+def get_cross_statement_intelligence() -> Dict[str, Any]:
+    """
+    Returns correlated entity profiles, repeated beneficiaries, bridge accounts, similarity scores,
+    and investigation relationship graph across all uploaded statements.
+    """
+    try:
+        return CrossStatementIntelligenceEngine.analyze(data_store)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to generate cross-statement intelligence: {str(e)}")
 
 @app.post("/seed-demo")
 def seed_demo_data():
@@ -216,7 +302,7 @@ def seed_demo_data():
         os.path.join(dataset_dir, "primary", "08874795659248.pdf"),
         os.path.join(dataset_dir, "primary", "17771917925.pdf"),
         # Secondary CSV / TXT
-        os.path.join(dataset_dir, "Secondary", "958533930537174-14-02-2024to11-12-2025.csv"),
+        os.path.join(dataset_dir, "Secondary", "958533930537174-14-02-2024to11-12-2025.pdf"),
         os.path.join(dataset_dir, "Secondary", "shivlal statement.txt")
     ]
     

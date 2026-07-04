@@ -96,3 +96,19 @@ out/
 *.csv
 backend/export/
 backend/logs/
+
+# =========================
+# EXCLUDED BY USER
+# =========================
+backend/uploads/
+*.png
+*.jpg
+*.jpeg
+*.pdf
+*.xlsx
+*.xls
+backend/tests/debug_validation_report.*
+cross_statement_intelligence_report.md
+risk_audit_report.md
+diff_utf8.txt
+

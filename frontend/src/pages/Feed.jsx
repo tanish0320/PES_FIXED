@@ -15,7 +15,7 @@ export default function Feed() {
   const [riskFilter, setRiskFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   
-  const [sidebarState, setSidebarState] = useState({ isOpen: false, tx: null, case: null, actions: [] });
+  const [sidebarState, setSidebarState] = useState({ isOpen: false, tx: null, case: null, caseDetails: null, actions: [] });
   const role = getRole();
 
   // Load transactions based on selected case dropdown
@@ -131,6 +131,7 @@ export default function Feed() {
         isOpen: true,
         tx,
         case: details.case,
+        caseDetails: details,
         actions: details.case?.actions_taken || []
       });
     } catch (err) {
@@ -328,7 +329,8 @@ export default function Feed() {
         isOpen={sidebarState.isOpen}
         selectedTransaction={sidebarState.tx}
         selectedCase={sidebarState.case}
-        actions={sidebarState.actions}
+        caseDetails={sidebarState.caseDetails}
+        onTxSelect={(newTx) => setSidebarState(prev => ({ ...prev, tx: newTx }))}
         onClose={() => setSidebarState({ ...sidebarState, isOpen: false })}
         role={role}
       />

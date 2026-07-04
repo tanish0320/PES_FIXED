@@ -9,6 +9,7 @@ import Cases from './pages/Cases';
 import Graph from './pages/Graph';
 import Upload from './pages/Upload';
 import Report from './pages/Report';
+import CrossCaseIntelligence from './pages/CrossCaseIntelligence';
 
 import ErrorBoundary from './components/ErrorBoundary';
 import Login from './components/Login';
@@ -21,7 +22,7 @@ import {
 const NavigationSidebar = ({ handleLogout, role }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { searchEntities } = useDataStore();
+  const { searchEntities, cases } = useDataStore();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -176,6 +177,15 @@ const NavigationSidebar = ({ handleLogout, role }) => {
           <ShieldAlert size={16} />
           Investigations
         </Link>
+        {cases.length > 1 && (
+          <Link 
+            to="/cross-case-intelligence" 
+            className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${getActiveCls('/cross-case-intelligence')}`}
+          >
+            <GitBranch size={16} />
+            Cross-Case Intelligence
+          </Link>
+        )}
       </nav>
 
       {/* Logout & Footer */}
@@ -221,6 +231,7 @@ const AppContent = () => {
           <Route path="/investigations" element={<ErrorBoundary><Cases /></ErrorBoundary>} />
           <Route path="/graph/:caseId" element={<ErrorBoundary><Graph /></ErrorBoundary>} />
           <Route path="/report/:caseId" element={<ErrorBoundary><Report /></ErrorBoundary>} />
+          <Route path="/cross-case-intelligence" element={<ErrorBoundary><CrossCaseIntelligence /></ErrorBoundary>} />
         </Routes>
       </main>
     </div>

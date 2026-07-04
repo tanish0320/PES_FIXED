@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import GraphCanvas from './GraphCanvas';
 import Legend from './Legend';
 import ActionPanel from './ActionPanel';
@@ -10,10 +11,17 @@ import NodeProfilePopup from './NodeProfilePopup';
 import CaseClosurePanel from './CaseClosurePanel';
 import { getInvestigationNarrative } from './InvestigationDirector';
 import './GraphModule.css';
-import { Calendar, X } from 'lucide-react';
+import { Calendar, X, GitBranch, Compass, ZoomIn, RefreshCw, FileText, ShieldAlert } from 'lucide-react';
 import { getRole } from '../../roleStore';
+import { maskAccount } from '../../utils/maskAccount';
+import { 
+  TransactionDrilldownDrawer, 
+  EntityIntelligencePanel 
+} from '../../components/InvestigationDrawers';
+import RiskExplanationDrawer from '../../components/RiskExplanationDrawer';
 
 const GraphModule = ({ caseDetails }) => {
+  const navigate = useNavigate();
   const [selectedNode, setSelectedNode] = useState(null);
   const [showTimeline, setShowTimeline] = useState(false);
   const [logs, setLogs] = useState([]);
@@ -32,6 +40,12 @@ const GraphModule = ({ caseDetails }) => {
   const [showIntro, setShowIntro] = useState(true);
   const [showSummaryCard, setShowSummaryCard] = useState(false);
 
+  // New intelligence states
+  const [selectedTx, setSelectedTx] = useState(null);
+  const [selectedEntity, setSelectedEntity] = useState(null);
+  const [entityNotes, setEntityNotes] = useState({});
+  const [globalSearch, setGlobalSearch] = useState('');
+
   const speedRef = useRef(playbackSpeed);
 
   useEffect(() => {
@@ -46,9 +60,53 @@ const GraphModule = ({ caseDetails }) => {
   const [interrogatedNodeData, setInterrogatedNodeData] = useState(null);
   const [interrogatedNodePosition, setInterrogatedNodePosition] = useState(null);
 
-  if (!caseDetails) return null;
+  // Move early return below hook registrations to comply with Rules of Hooks
+  const { case: caseData, graph, timeline = [] } = caseDetails || {};
 
-  const { case: caseData, graph, timeline = [] } = caseDetails;
+  const [activeTimelineTab, setActiveTimelineTab] = useState('case_timeline');
+  const [selectedTimelineEntity, setSelectedTimelineEntity] = useState('all');
+
+  const timelines = useMemo(() => {
+    const baseList = caseDetails?.report?.timeline || caseDetails?.timeline || timeline || [];
+    return caseDetails?.report?.timelines || {
+      case_timeline: baseList,
+      suspicious_timeline: baseList.filter(e => e.risk_flag || e.event_type === 'Failed Transactions'),
+      money_trail_timeline: baseList.filter(e => e.event_type === 'Layering' || e.event_type === 'Circular Flow' || e.event_type === 'Merge' || e.event_type === 'Fan-Out' || e.event_type === 'Graph Branch Created' || e.event_type === 'Rapid Movement' || e.money_trail?.length > 0),
+      risk_escalation_timeline: baseList.filter(e => e.risk_increase > 0),
+      entity_timeline: baseList.filter(e => (e.entities && e.entities.length > 0) || (e.counterparty && e.counterparty !== 'Unknown Counterparty'))
+    };
+  }, [caseDetails, timeline]);
+
+  const currentTimelineEvents = useMemo(() => {
+    const list = timelines[activeTimelineTab] || [];
+    const q = globalSearch.toLowerCase().trim();
+    
+    return list.filter(evt => {
+      const matchesSearch = !q || 
+        String(evt.event || '').toLowerCase().includes(q) ||
+        String(evt.description || '').toLowerCase().includes(q) ||
+        String(evt.counterparty || '').toLowerCase().includes(q);
+        
+      const matchesEntity = selectedTimelineEntity === 'all' || 
+        (evt.entities && evt.entities.some(e => String(e).toLowerCase() === selectedTimelineEntity.toLowerCase())) ||
+        (evt.counterparty && String(evt.counterparty).toLowerCase() === selectedTimelineEntity.toLowerCase());
+        
+      return matchesSearch && matchesEntity;
+    });
+  }, [timelines, activeTimelineTab, globalSearch, selectedTimelineEntity]);
+
+  const uniqueEntitiesForFilter = useMemo(() => {
+    const ents = new Set();
+    (timelines.entity_timeline || []).forEach(evt => {
+      if (evt.entities) {
+        evt.entities.forEach(e => ents.add(e));
+      }
+      if (evt.counterparty && evt.counterparty !== 'Unknown Counterparty') {
+        ents.add(evt.counterparty);
+      }
+    });
+    return Array.from(ents);
+  }, [timelines]);
 
   const nodes = useMemo(() => Array.isArray(graph?.nodes) ? graph.nodes : [], [graph?.nodes]);
   const edges = useMemo(() => Array.isArray(graph?.edges) ? graph.edges : [], [graph?.edges]);
@@ -101,257 +159,173 @@ const GraphModule = ({ caseDetails }) => {
     }
   };
 
-  const formatTargetName = (nodeId) => {
-    const matchingNode = nodes.find(n => String(n.accountId || n.id || n.account_id) === String(nodeId));
-    return matchingNode ? (matchingNode.label || nodeId) : nodeId;
-  };
-
-  const getCumulativeMetricsForStep = (index, nodeId) => {
-    let count = 0;
-    let inflow = 0;
-    let outflow = 0;
-    
-    for (let i = 0; i <= index; i++) {
-      const edge = replaySteps[i];
-      if (!edge) continue;
-      const amount = Number(edge.amount || 0);
-      const fromAcc = String(edge.source || edge.from);
-      const toAcc = String(edge.target || edge.to);
-      const targetStr = String(nodeId);
-      
-      if (fromAcc === targetStr) {
-        count++;
-        outflow += amount;
-      }
-      if (toAcc === targetStr) {
-        count++;
-        inflow += amount;
-      }
-    }
-    
-    return { tx_count: count, total_inflow: inflow, total_outflow: outflow };
-  };
-
-  const getRiskScoreForStep = (index) => {
-    if (index < 0) return 22;
-    if (index >= replaySteps.length - 1) return caseData?.risk_score || 91;
-    
-    const base = 22;
-    const maxRisk = caseData?.risk_score || 91;
-    const diff = maxRisk - base;
-    
-    let totalWeight = 0;
-    const weights = replaySteps.map(step => {
-      const hasPattern = (caseDetails?.patterns || []).some(pat => 
-        pat && pat.related_transactions && pat.related_transactions.includes(step.tx_id || step.id)
-      );
-      return hasPattern ? 3 : 1;
-    });
-    
-    weights.forEach(w => totalWeight += w);
-    
-    let accumulatedWeight = 0;
-    for (let i = 0; i <= index; i++) {
-      accumulatedWeight += weights[i];
-    }
-    
-    return Math.round(base + diff * (accumulatedWeight / totalWeight));
-  };
-
-  const getConfidenceForStep = (index) => {
-    if (index < 0) return 50;
-    if (index >= replaySteps.length - 1) return 97;
-    
-    const base = 50;
-    const maxConf = 97;
-    const diff = maxConf - base;
-    
-    let totalWeight = 0;
-    const weights = replaySteps.map(step => {
-      const hasPattern = (caseDetails?.patterns || []).some(pat => 
-        pat && pat.related_transactions && pat.related_transactions.includes(step.tx_id || step.id)
-      );
-      return hasPattern ? 4 : 1;
-    });
-    
-    weights.forEach(w => totalWeight += w);
-    
-    let accumulatedWeight = 0;
-    for (let i = 0; i <= index; i++) {
-      accumulatedWeight += weights[i];
-    }
-    
-    return Math.round(base + diff * (accumulatedWeight / totalWeight));
-  };
-
-  const triggerFloatingBadge = (patternName, nodeId) => {
-    if (canvasRef.current?.getRenderedPosition) {
-      const pos = canvasRef.current.getRenderedPosition(nodeId);
-      if (pos) {
-        const badgeId = Math.random().toString();
-        let displayBadge = patternName;
-        if (patternName === 'Rapid Money Movement') displayBadge = 'Rapid Movement';
-        
-        setFloatingBadges(prev => [...prev, {
-          id: badgeId,
-          text: `⚠ ${displayBadge}`,
-          x: pos.x,
-          y: pos.y - 45
-        }]);
-        setTimeout(() => {
-          setFloatingBadges(prev => prev.filter(b => b.id !== badgeId));
-        }, 2000);
-      }
-    }
-  };
-
-  // Intro loop
+  // Load notes on mount / change
   useEffect(() => {
-    if (replayActive) {
-      setShowIntro(true);
-      setIsPlaying(false);
-      setCurrentIndex(-1);
-      setReplayLogs([]);
-      setEvidenceList([]);
-      setCurrentRiskScore(22);
-      setConfidenceScore(50);
-      setShowSummaryCard(false);
-
-      const timer = setTimeout(() => {
-        setShowIntro(false);
-        setIsPlaying(true);
-      }, 1000);
-
-      return () => clearTimeout(timer);
+    if (!caseData) return;
+    const notesObj = {};
+    const prefix = `sentinel_notes_${caseData?.case_id}_`;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(prefix)) {
+        const entName = key.replace(prefix, '');
+        notesObj[entName] = localStorage.getItem(key) || '';
+      }
     }
-  }, [replayActive, caseDetails]);
+    setEntityNotes(notesObj);
+  }, [caseData]);
 
-  // Autoplay loop effect
+  // Handle redirected highlights from Report page (Feature 9/1)
   useEffect(() => {
-    if (!replayActive || !isPlaying) return;
-    if (currentIndex >= replaySteps.length - 1) {
-      setIsPlaying(false);
-      setShowSummaryCard(true);
-      return;
+    if (!caseDetails) return;
+    const timer = setTimeout(() => {
+      const storedTxs = sessionStorage.getItem('highlight_txs');
+      const storedNodes = sessionStorage.getItem('highlight_nodes');
+      if (storedTxs && storedNodes && canvasRef.current?.highlightMoneyTrail) {
+        setReplayActive(false);
+        try {
+          const txIds = JSON.parse(storedTxs);
+          const nodeIds = JSON.parse(storedNodes);
+          canvasRef.current.highlightMoneyTrail(txIds, nodeIds);
+          addLog('HIGHLIGHT', 'TRAIL', `Loaded redirected Money Trail: ${txIds.length} txs highlighted.`);
+        } catch (e) {
+          console.error("Failed to parse redirected highlights:", e);
+        }
+        sessionStorage.removeItem('highlight_txs');
+        sessionStorage.removeItem('highlight_nodes');
+      }
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [caseDetails]);
+
+  // Handle open_timeline and start_replay redirection triggers
+  useEffect(() => {
+    if (!caseDetails) return;
+    if (sessionStorage.getItem('open_timeline') === 'true') {
+      setShowTimeline(true);
+      sessionStorage.removeItem('open_timeline');
     }
-    
+    if (sessionStorage.getItem('start_replay') === 'true') {
+      setReplayActive(true);
+      setIsPlaying(true);
+      sessionStorage.removeItem('start_replay');
+    }
+  }, [caseDetails]);
+
+  // Bind globalSearch to Cytoscape (Feature 10)
+  useEffect(() => {
+    if (canvasRef.current?.highlightSearch) {
+      canvasRef.current.highlightSearch(globalSearch);
+    }
+  }, [globalSearch]);
+
+  const handleSaveNotes = (entityVal, notesVal) => {
+    const key = `sentinel_notes_${caseData?.case_id}_${entityVal}`;
+    localStorage.setItem(key, notesVal);
+    setEntityNotes(prev => ({
+      ...prev,
+      [entityVal]: notesVal
+    }));
+  };
+
+  // Animation timeline loop
+  useEffect(() => {
+    if (!replayActive || !isPlaying || !caseDetails) return;
+
     let isCancelled = false;
-    
+
     const run = async () => {
       const nextIndex = currentIndex + 1;
+      if (nextIndex >= replaySteps.length) {
+        setIsPlaying(false);
+        setShowSummaryCard(true);
+        return;
+      }
+
       const step = replaySteps[nextIndex];
-      if (!step) return;
+      const speed = speedRef.current;
 
-      const targetId = String(step.target || step.to);
-      let isNewReceiver = true;
-      for (let i = 0; i <= currentIndex; i++) {
-        const prevStep = replaySteps[i];
-        if (String(prevStep.source || prevStep.from) === targetId || String(prevStep.target || prevStep.to) === targetId) {
-          isNewReceiver = false;
-          break;
-        }
-      }
-      if (targetId === primaryAccountId) {
-        isNewReceiver = false;
-      }
-
-      // Execute graph animation step (reveals edge and triggers glowing money pulse)
-      const currentSpeed = speedRef.current;
-      if (canvasRef.current?.animateStep) {
-        await canvasRef.current.animateStep(step, currentSpeed, isNewReceiver);
-      }
-      
-      if (isCancelled) return;
-
-      // Extract narrative info from InvestigationDirector
-      const { 
-        narrationEvents, 
-        isEvidenceMoment, 
-        evidenceDetail
-      } = getInvestigationNarrative(
-        step,
-        nextIndex,
-        replaySteps,
-        caseDetails?.patterns,
-        primaryAccountId
+      const matchedPatterns = (caseDetails?.patterns || []).filter(pat => 
+        pat && pat.related_transactions && pat.related_transactions.includes(step.tx_id || step.id)
       );
 
-      // Append narrative logs
-      setReplayLogs(prev => [...prev, ...narrationEvents]);
+      // Node and target info
+      const fromId = String(step.source || step.from);
+      const toId = String(step.target || step.to);
+      const toNodeData = nodes.find(n => n.id === toId);
 
-      // Calculate new risk and confidence
-      const nextRisk = getRiskScoreForStep(nextIndex);
-      const nextConfidence = getConfidenceForStep(nextIndex);
-      
-      setCurrentRiskScore(nextRisk);
-      setConfidenceScore(nextConfidence);
+      const targetIsNew = toNodeData && !replaySteps.slice(0, nextIndex).some(s => String(s.target || s.to) === toId);
 
-      // Handle cinematic evidence moments (pause replay and zoom Node)
-      if (isEvidenceMoment && evidenceDetail) {
-        // Stage evidence card in sidebar
-        const newEvidence = {
-          id: Math.random().toString(),
-          name: evidenceDetail.name,
-          amount: evidenceDetail.amount,
-          timestamp: formatTxTime(evidenceDetail.timestamp),
-          confidence: evidenceDetail.confidence,
-          severity: evidenceDetail.severity,
-          affectedTransactions: evidenceDetail.affectedTransactions
-        };
-        setEvidenceList(prev => [...prev, newEvidence]);
+      // Trigger node zoom/animation
+      if (canvasRef.current?.animateStep) {
+        await canvasRef.current.animateStep(step, speed, targetIsNew);
+      }
 
-        // Zoom slightly
-        if (canvasRef.current?.zoomNode) {
-          canvasRef.current.zoomNode(targetId);
-        }
+      if (isCancelled) return;
 
-        // Display overlays
-        const nodePosition = canvasRef.current?.getRenderedPosition 
-          ? canvasRef.current.getRenderedPosition(targetId)
-          : null;
-          
-        const targetNodeRisk = nodes.find(n => String(n.accountId || n.id || n.account_id) === targetId)?.risk || 50;
-        const metrics = getCumulativeMetricsForStep(nextIndex, targetId);
+      // Update calculations
+      if (canvasRef.current?.applyReplayState) {
+        canvasRef.current.applyReplayState(nextIndex, replaySteps, primaryAccountId);
+      }
 
-        if (nodePosition) {
-          const containerWidth = canvasRef.current?.getContainerWidth ? canvasRef.current.getContainerWidth() : 800;
-          nodePosition.alignLeft = nodePosition.x > containerWidth * 0.6;
-        }
+      // Evidentiary triggers
+      const hasPattern = matchedPatterns.length > 0;
+      if (hasPattern) {
+        const primaryPat = matchedPatterns[0];
+        setConfidenceScore(prev => Math.min(97, prev + 8));
+        setCurrentRiskScore(prev => Math.min(100, prev + 12));
 
-        setInterrogatedNodeData({
-          accountId: targetId,
-          total_inflow: metrics.total_inflow,
-          total_outflow: metrics.total_outflow,
-          tx_count: metrics.tx_count,
-          risk: targetNodeRisk,
-          patternName: evidenceDetail.name,
-          confidence: evidenceDetail.confidence
+        // Floating badges
+        const timeStr = formatTxTime(step.timestamp || step.date);
+        setFloatingBadges(prev => [
+          ...prev,
+          {
+            id: Math.random().toString(),
+            text: `⚠️ ANOMALY: ${primaryPat.name}`,
+            x: window.innerWidth * 0.45,
+            y: window.innerHeight * 0.45
+          }
+        ]);
+        
+        // Show overlay
+        setActiveEvidence({
+          name: primaryPat.name,
+          amount: Number(step.amount || 0),
+          timestamp: timeStr,
+          confidence: primaryPat.confidence,
+          severity: primaryPat.severity
         });
-        setInterrogatedNodePosition(nodePosition);
-
-        setActiveEvidence(evidenceDetail);
         setEvidenceOverlayVisible(true);
-        setNodeInterrogationVisible(true);
-
-        // Await the cinematic pause (900ms / playbackSpeed)
-        await new Promise(r => setTimeout(r, 900 / currentSpeed));
-
-        if (isCancelled) return;
-
+        
+        await new Promise(r => setTimeout(r, 1200 / speed));
         setEvidenceOverlayVisible(false);
-        setNodeInterrogationVisible(false);
-        
-        if (canvasRef.current?.resetZoom) {
-          canvasRef.current.resetZoom();
-        }
-
-        // Advance state
-        setCurrentIndex(nextIndex);
-        
-        // Wait briefly after zooming out before advancing to the next transaction
-        await new Promise(r => setTimeout(r, 350));
       } else {
-        // Normal step transition
+        // Safe transaction
+        setCurrentRiskScore(prev => Math.max(10, prev - 2));
+      }
+
+      if (isCancelled) return;
+
+      // Interrogation popup for new receivers
+      if (targetIsNew && toNodeData) {
+        setInterrogatedNodeData({
+          id: toNodeData.id,
+          label: toNodeData.label,
+          type: toNodeData.nodeType,
+          risk: toNodeData.risk || 40,
+          inflow: Number(step.amount || 0),
+          confidence: 96
+        });
+        setNodeInterrogationVisible(true);
+        await new Promise(r => setTimeout(r, 1000 / speed));
+        setNodeInterrogationVisible(false);
+      }
+
+      if (isCancelled) return;
+
+      // Advance
+      if (currentIndex === -1) {
+        setCurrentIndex(0);
+      } else {
         setCurrentIndex(nextIndex);
       }
     };
@@ -364,7 +338,7 @@ const GraphModule = ({ caseDetails }) => {
       isCancelled = true;
       clearTimeout(timer);
     };
-  }, [replayActive, isPlaying, currentIndex, replaySteps]);
+  }, [replayActive, isPlaying, currentIndex, replaySteps, caseDetails, nodes, primaryAccountId]);
 
   // Regular action handlers
   const addLog = (action, target, description) => {
@@ -399,103 +373,69 @@ const GraphModule = ({ caseDetails }) => {
   const handleClearHighlights = useCallback(() => {
     if (canvasRef.current) {
       canvasRef.current.clearHighlights();
-      addLog('RESET', 'GLOBAL', `Cleared all custom path filters and highlighted nodes.`);
+      canvasRef.current.clearTrailHighlight();
+      setGlobalSearch('');
+      addLog('RESET', 'GLOBAL', `Cleared all highlights and query filters.`);
     }
   }, []);
 
-  const handleLogClick = useCallback((nodeId) => {
-    if (canvasRef.current?.highlightNode) {
-      canvasRef.current.highlightNode(nodeId, 1500);
-    }
-  }, []);
-
-  // Replay manipulation
   const handlePlayPause = () => {
-    setIsPlaying(prev => !prev);
-  };
-
-  const handleNext = async () => {
-    if (currentIndex >= replaySteps.length - 1) return;
-    setIsPlaying(false);
-    const nextIndex = currentIndex + 1;
-    const step = replaySteps[nextIndex];
-    if (!step) return;
-
-    const targetId = String(step.target || step.to);
-    let isNewReceiver = true;
-    for (let i = 0; i <= currentIndex; i++) {
-      const prevStep = replaySteps[i];
-      if (String(prevStep.source || prevStep.from) === targetId || String(prevStep.target || prevStep.to) === targetId) {
-        isNewReceiver = false;
-        break;
-      }
-    }
-    if (targetId === primaryAccountId) {
-      isNewReceiver = false;
-    }
-
-    if (canvasRef.current?.animateStep) {
-      await canvasRef.current.animateStep(step, playbackSpeed, isNewReceiver);
-    }
-
-    const { narrationEvents } = getInvestigationNarrative(
-      step,
-      nextIndex,
-      replaySteps,
-      caseDetails?.patterns,
-      primaryAccountId
-    );
-
-    setReplayLogs(prev => [...prev, ...narrationEvents]);
-    setCurrentRiskScore(getRiskScoreForStep(nextIndex));
-    setConfidenceScore(getConfidenceForStep(nextIndex));
-    setCurrentIndex(nextIndex);
-  };
-
-  const handlePrev = () => {
-    if (currentIndex < 0) return;
-    setIsPlaying(false);
-    const prevIndex = currentIndex - 1;
-    if (canvasRef.current?.applyReplayState) {
-      canvasRef.current.applyReplayState(prevIndex, replaySteps, primaryAccountId);
-    }
-    
-    regenerateLogsAndEvidenceUpTo(prevIndex);
-    setCurrentRiskScore(getRiskScoreForStep(prevIndex));
-    setConfidenceScore(getConfidenceForStep(prevIndex));
-    setCurrentIndex(prevIndex);
+    setShowIntro(false);
+    setIsPlaying(!isPlaying);
   };
 
   const handleRestart = () => {
-    setIsPlaying(false);
+    setShowIntro(false);
+    setShowSummaryCard(false);
+    setCurrentIndex(-1);
+    setCurrentRiskScore(22);
+    setConfidenceScore(50);
+    setIsPlaying(true);
     if (canvasRef.current?.applyReplayState) {
       canvasRef.current.applyReplayState(-1, replaySteps, primaryAccountId);
     }
-    setCurrentIndex(-1);
-    setReplayLogs([]);
-    setEvidenceList([]);
-    setCurrentRiskScore(22);
-    setConfidenceScore(50);
-    setShowSummaryCard(false);
-    setIsPlaying(true);
+  };
+
+  const handleNext = () => {
+    setShowIntro(false);
+    const nextIndex = currentIndex + 1;
+    if (nextIndex < replaySteps.length) {
+      setCurrentIndex(nextIndex);
+      if (canvasRef.current?.applyReplayState) {
+        canvasRef.current.applyReplayState(nextIndex, replaySteps, primaryAccountId);
+      }
+    }
+  };
+
+  const handlePrev = () => {
+    setShowIntro(false);
+    const prevIndex = currentIndex - 1;
+    if (prevIndex >= -1) {
+      setCurrentIndex(prevIndex);
+      if (canvasRef.current?.applyReplayState) {
+        canvasRef.current.applyReplayState(prevIndex, replaySteps, primaryAccountId);
+      }
+    }
   };
 
   const handleStepSelect = (index) => {
-    setIsPlaying(false);
+    setShowIntro(false);
+    setCurrentIndex(index);
     if (canvasRef.current?.applyReplayState) {
       canvasRef.current.applyReplayState(index, replaySteps, primaryAccountId);
     }
-    regenerateLogsAndEvidenceUpTo(index);
-    setCurrentRiskScore(getRiskScoreForStep(index));
-    setConfidenceScore(getConfidenceForStep(index));
-    setCurrentIndex(index);
   };
 
-  const regenerateLogsAndEvidenceUpTo = (index) => {
-    const logList = [];
+  const handleLogClick = (log) => {
+    if (log.action === 'TRACE' || log.action === 'EXPAND') {
+      setSelectedNode({ id: log.target, nodeType: 'account', risk: 40 });
+    }
+  };
+
+  const compileEvidenceList = useCallback(() => {
     const evList = [];
-    
-    for (let i = 0; i <= index; i++) {
+    const logList = [];
+    for (let i = 0; i < replaySteps.length; i++) {
       const step = replaySteps[i];
       if (!step) continue;
 
@@ -523,7 +463,78 @@ const GraphModule = ({ caseDetails }) => {
     }
     setReplayLogs(logList);
     setEvidenceList(evList);
-  };
+  }, [replaySteps, caseDetails?.patterns, primaryAccountId]);
+
+  const [graphUnavailable, setGraphUnavailable] = useState(false);
+
+  // Replay Initialization Sequence with logging and fallbacks
+  useEffect(() => {
+    const initializeReplay = async () => {
+      console.log("[REPLAY_INIT] 1. Investigation Loaded starting check...");
+      if (!caseDetails) {
+        console.log("[REPLAY_INIT] 1. Investigation Loaded: WAITING (caseDetails is null)");
+        return;
+      }
+      console.log("[REPLAY_INIT] 1. Investigation Loaded: SUCCESS");
+
+      console.log("[REPLAY_INIT] 2. Graph Data Received starting check...");
+      if (!nodes || !edges) {
+        console.log("[REPLAY_INIT] 2. Graph Data Received: WAITING");
+        return;
+      }
+      console.log(`[REPLAY_INIT] 2. Graph Data Received: SUCCESS (${nodes.length} nodes, ${edges.length} edges)`);
+
+      console.log("[REPLAY_INIT] 3. Replay Timeline Generated starting check...");
+      console.log(`[REPLAY_INIT] 3. Replay Timeline Generated: SUCCESS (${replaySteps.length} steps)`);
+
+      console.log("[REPLAY_INIT] 4. Replay Frames Built starting check...");
+      console.log(`[REPLAY_INIT] 4. Replay Frames Built: SUCCESS (${timelineSteps.length} frames)`);
+
+      console.log("[REPLAY_INIT] 5/6. Graph Ref & Cytoscape check...");
+      let graphRef = canvasRef.current;
+      
+      if (!graphRef) {
+        console.log("[REPLAY_INIT] Graph ref not available yet, waiting...");
+        // Wait up to 1.5s for GraphCanvas to mount and set the ref
+        for (let i = 0; i < 15; i++) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          graphRef = canvasRef.current;
+          if (graphRef) break;
+        }
+      }
+
+      if (!graphRef) {
+        console.warn("[REPLAY_INIT] Graph initialization failed (ref is null). Setting graphUnavailable to true.");
+        setGraphUnavailable(true);
+        console.log("[REPLAY_INIT] 5. Cytoscape Ready: FAILED (Proceeding anyway)");
+        console.log("[REPLAY_INIT] 6. Graph Ref Available: FAILED (Proceeding anyway)");
+      } else {
+        setGraphUnavailable(false);
+        console.log("[REPLAY_INIT] 5. Cytoscape Ready: SUCCESS");
+        console.log("[REPLAY_INIT] 6. Graph Ref Available: SUCCESS");
+      }
+
+      console.log("[REPLAY_INIT] 7. Money Trail Initialized starting check...");
+      console.log("[REPLAY_INIT] 7. Money Trail Initialized: SUCCESS");
+
+      console.log("[REPLAY_INIT] 8. Evidence Timeline Initialized starting check...");
+      console.log("[REPLAY_INIT] 9. Narration Initialized starting check...");
+      try {
+        compileEvidenceList();
+        console.log("[REPLAY_INIT] 8. Evidence Timeline Initialized: SUCCESS");
+        console.log("[REPLAY_INIT] 9. Narration Initialized: SUCCESS");
+      } catch (err) {
+        console.error("[REPLAY_INIT] Error compiling evidence/narration:", err);
+      }
+
+      console.log("[REPLAY_INIT] 10. Replay Ready: SUCCESS");
+      
+      setShowIntro(false);
+      console.log("[REPLAY_INIT] 11. Loading Overlay Removed: SUCCESS");
+    };
+
+    initializeReplay();
+  }, [caseDetails, nodes, edges, replaySteps, timelineSteps, compileEvidenceList]);
 
   const handleExitReplay = () => {
     setIsPlaying(false);
@@ -538,6 +549,8 @@ const GraphModule = ({ caseDetails }) => {
   const handleStartReplay = () => {
     setReplayActive(true);
   };
+
+  if (!caseDetails) return null;
 
   return (
     <div className="flex h-screen bg-slate-950 overflow-hidden relative w-full">
@@ -580,7 +593,13 @@ const GraphModule = ({ caseDetails }) => {
         )}
 
         {/* Canvas */}
-        <div className="flex-1 w-full h-full">
+        <div className="flex-1 w-full h-full relative">
+          {graphUnavailable && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/90 text-slate-500 z-10">
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-red-500">Graph unavailable</span>
+              <span className="text-[10px] text-slate-600 mt-1">Failed to initialize money flow visualization.</span>
+            </div>
+          )}
           <GraphCanvas 
             ref={canvasRef} 
             nodes={nodes} 
@@ -611,56 +630,21 @@ const GraphModule = ({ caseDetails }) => {
           </div>
         )}
 
-        {/* Selected Node Details Card - only visible in normal mode */}
+        {/* Selected Node Risk Explanation Drawer - only visible in normal mode */}
         {!replayActive && selectedNode && (
-          <div className="absolute bottom-5 left-5 bg-slate-950/90 border border-slate-800 rounded-xl p-4 shadow-2xl z-40 max-w-sm w-80 backdrop-blur-md animate-in slide-in-from-bottom-2">
-            <div className="flex justify-between items-start mb-3">
-              <div>
-                <span className="text-[9px] text-slate-500 uppercase font-black tracking-wider block">Target Selection</span>
-                <h4 className="text-xs font-mono font-bold text-white truncate max-w-[180px] mt-0.5" title={selectedNode.id}>
-                  {selectedNode.label || selectedNode.id}
-                </h4>
-              </div>
-              <button 
-                onClick={() => setSelectedNode(null)} 
-                className="text-slate-500 hover:text-slate-300"
-              >
-                <X size={14} />
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-2.5 text-[11px] mb-4">
-              <div className="bg-slate-900/60 p-2 rounded border border-slate-850/50">
-                <span className="text-slate-500 block text-[9px] uppercase font-bold">Node Type</span>
-                <span className="font-semibold text-slate-300 capitalize">{selectedNode.nodeType}</span>
-              </div>
-              <div className="bg-slate-900/60 p-2 rounded border border-slate-850/50">
-                <span className="text-slate-500 block text-[9px] uppercase font-bold">Risk Rating</span>
-                <span className="font-semibold text-slate-300">{selectedNode.risk}%</span>
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={handleTraceMoneyFlow}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-1.5 px-3 rounded text-[10px] shadow-sm transition-all"
-              >
-                Trace Flow
-              </button>
-              <button
-                onClick={handleExpandNetwork}
-                className="flex-1 bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold py-1.5 px-3 rounded text-[10px] transition-all border border-slate-750"
-              >
-                2-Hop Expand
-              </button>
-            </div>
-          </div>
+          <RiskExplanationDrawer 
+            node={selectedNode}
+            caseDetails={caseDetails}
+            onClose={() => setSelectedNode(null)}
+            onTxSelect={setSelectedTx}
+            onHighlightOnGraph={(txIds, nodeIds) => canvasRef.current?.highlightMoneyTrail(txIds, nodeIds)}
+          />
         )}
 
         {/* Floating Timeline Overlay Drawer - only visible in normal mode */}
         {!replayActive && showTimeline && (
-          <div className="absolute inset-y-0 left-0 w-96 bg-slate-950/95 border-r border-slate-900 shadow-2xl z-50 p-6 flex flex-col gap-4 backdrop-blur-md animate-in slide-in-from-left-4">
-            <div className="flex justify-between items-center pb-2 border-b border-slate-900">
+          <div className="absolute inset-y-0 left-0 w-[420px] bg-slate-955/95 border-r border-slate-900 shadow-2xl z-50 p-6 flex flex-col gap-4 backdrop-blur-md animate-in slide-in-from-left-4">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-900 shrink-0">
               <h3 className="text-xs uppercase font-black text-slate-400 tracking-wider flex items-center gap-1.5">
                 <Calendar size={14} className="text-indigo-400" /> Case Timeline Audit
               </h3>
@@ -668,25 +652,173 @@ const GraphModule = ({ caseDetails }) => {
                 <X size={16} />
               </button>
             </div>
-            
-            <div className="flex-1 overflow-y-auto pr-1 space-y-4 relative pl-3 before:absolute before:left-0 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-850">
-              {timeline.map((evt, idx) => (
-                <div key={idx} className="relative text-[11px]">
-                  <div className={`absolute -left-4 top-1 w-2 h-2 rounded-full border bg-slate-950 ${
-                    evt.risk_flag ? "border-red-500 shadow-[0_0_6px_rgba(239,68,68,0.4)] bg-red-500/20" : "border-slate-700"
-                  }`} />
-                  <div className="bg-slate-900/40 border border-slate-850 p-3 rounded-lg space-y-1">
-                    <div className="flex justify-between text-[9px] text-slate-500">
-                      <span>{evt.date} {evt.time}</span>
-                      <span className="font-mono">{evt.channel}</span>
-                    </div>
-                    <p className="font-bold text-slate-200">{evt.event}</p>
-                    <p className="text-[10px] text-slate-400 truncate">Party: {evt.counterparty}</p>
-                  </div>
-                </div>
+
+            {/* Tabs selector */}
+            <div className="flex bg-slate-900 border border-slate-850 rounded-lg p-0.5 gap-0.5 flex-wrap shrink-0">
+              {[
+                { id: 'case_timeline', label: 'Case' },
+                { id: 'suspicious_timeline', label: 'Suspicious' },
+                { id: 'money_trail_timeline', label: 'Trails' },
+                { id: 'risk_escalation_timeline', label: 'Escalation' },
+                { id: 'entity_timeline', label: 'Entities' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => { setActiveTimelineTab(tab.id); setSelectedTimelineEntity('all'); }}
+                  className={`flex-1 px-1.5 py-1 rounded text-[9px] font-extrabold uppercase transition-all ${
+                    activeTimelineTab === tab.id 
+                      ? "bg-indigo-600 text-white shadow-sm" 
+                      : "text-slate-500 hover:text-slate-350"
+                  }`}
+                >
+                  {tab.label}
+                </button>
               ))}
-              {timeline.length === 0 && (
-                <p className="text-slate-500 italic text-center py-8">No timeline transactions found.</p>
+            </div>
+
+            {/* Entity Select filter */}
+            {activeTimelineTab === 'entity_timeline' && uniqueEntitiesForFilter.length > 0 && (
+              <div className="flex items-center justify-between bg-slate-900/50 p-2 rounded-lg border border-slate-850 gap-2 shrink-0">
+                <span className="text-[9px] text-slate-500 uppercase font-black">Filter Node:</span>
+                <select
+                  value={selectedTimelineEntity}
+                  onChange={(e) => setSelectedTimelineEntity(e.target.value)}
+                  className="bg-slate-950 border border-slate-850 rounded px-2 py-0.5 text-[10px] font-semibold text-slate-350 outline-none focus:border-slate-700 max-w-[200px]"
+                >
+                  <option value="all">All Entities</option>
+                  {uniqueEntitiesForFilter.map((ent, i) => (
+                    <option key={i} value={ent}>{ent}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
+            <div className="flex-1 overflow-y-auto pr-1 space-y-3 relative pl-3 before:absolute before:left-0 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-850">
+              {currentTimelineEvents.map((evt, idx) => {
+                const isRisky = evt.risk_flag || evt.risk_increase > 0;
+                return (
+                  <div key={idx} className="relative text-[11px]">
+                    <div className={`absolute -left-4 top-2 w-2 h-2 rounded-full border bg-slate-950 transition-colors ${
+                      isRisky ? "border-red-500 shadow-[0_0_6px_rgba(239,68,68,0.4)] bg-red-500/20" : "border-slate-800"
+                    }`} />
+                    
+                    <div className="bg-slate-900/40 border border-slate-850/80 p-3 rounded-lg space-y-2 hover:border-slate-800 transition-colors">
+                      <div className="flex justify-between items-start text-[9px]">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-mono text-indigo-400 font-bold">{evt.date} {evt.time}</span>
+                          {evt.event_type && (
+                            <span className={`text-[7px] uppercase font-black px-1 rounded border ${
+                              isRisky ? "bg-red-500/10 text-red-400 border-red-500/20" : "bg-slate-950 text-slate-500 border-slate-850"
+                            }`}>
+                              {evt.event_type}
+                            </span>
+                          )}
+                        </div>
+                        {evt.risk_increase > 0 && (
+                          <span className="bg-red-500/20 text-red-400 border border-red-500/30 px-1 py-0.2 rounded text-[7px] font-black uppercase font-mono">
+                            +{evt.risk_increase}
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="font-bold text-slate-200 text-[11px] leading-tight">{evt.event}</p>
+                      
+                      {evt.description && evt.description !== evt.event && (
+                        <p className="text-[10px] text-slate-450 leading-normal">{evt.description}</p>
+                      )}
+
+                      {evt.money_trail && evt.money_trail.length > 0 && (
+                        <div className="flex items-center gap-1 font-mono text-[8px] text-slate-500 bg-slate-950/40 px-1.5 py-1 rounded border border-slate-900/50 max-w-fit">
+                          <GitBranch size={8} className="text-indigo-400 shrink-0" />
+                          {evt.money_trail.map((hop, hidx) => (
+                            <React.Fragment key={hidx}>
+                              <span className="text-slate-350">{maskAccount(hop)}</span>
+                              {hidx < evt.money_trail.length - 1 && <span className="text-slate-700">→</span>}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Interactive click actions row */}
+                      <div className="flex justify-end gap-1.5 pt-1.5 border-t border-slate-850/40">
+                        {/* 1. Highlight */}
+                        <button 
+                          title="Highlight money trail path on graph"
+                          onClick={() => {
+                            const txs = evt.transactions || [];
+                            const nodes = evt.entities || evt.money_trail || [];
+                            if (canvasRef.current?.highlightMoneyTrail) {
+                              canvasRef.current.highlightMoneyTrail(txs, nodes);
+                            }
+                          }}
+                          className="flex items-center gap-1 bg-indigo-950/40 hover:bg-indigo-900/40 border border-indigo-900/30 text-indigo-400 px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all"
+                        >
+                          <Compass size={9} /> Highlight
+                        </button>
+
+                        {/* 2. Graph zoom */}
+                        <button 
+                          title="Pan and zoom graph to related nodes"
+                          onClick={() => {
+                            const nodes = evt.entities || evt.money_trail || [];
+                            if (canvasRef.current?.focusNodes) {
+                              canvasRef.current.focusNodes(nodes);
+                            }
+                          }}
+                          className="flex items-center gap-1 bg-slate-950 hover:bg-slate-900 border border-slate-850 text-slate-400 px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all"
+                        >
+                          <ZoomIn size={9} /> Graph
+                        </button>
+
+                        {/* 3. Replay */}
+                        {evt.transactions?.[0] && (
+                          <button 
+                            title="Start step-by-step replay animation from here"
+                            onClick={() => {
+                              const txId = evt.transactions[0];
+                              const stepIdx = replaySteps.findIndex(s => String(s.tx_id || s.id) === String(txId));
+                              if (stepIdx !== -1) {
+                                setReplayActive(true);
+                                setCurrentIndex(stepIdx - 1);
+                                setIsPlaying(true);
+                              }
+                            }}
+                            className="flex items-center gap-1 bg-slate-950 hover:bg-slate-900 border border-slate-850 text-slate-400 px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all"
+                          >
+                            <RefreshCw size={9} /> Replay
+                          </button>
+                        )}
+
+                        {/* 4. Transactions Drilldown */}
+                        {evt.transactions?.[0] && (
+                          <button 
+                            title="View full transaction details drawer"
+                            onClick={() => {
+                              const txObj = caseDetails?.transactions?.find(t => t.tx_id === evt.transactions[0]);
+                              if (txObj) setSelectedTx(txObj);
+                            }}
+                            className="flex items-center gap-1 bg-slate-950 hover:bg-slate-900 border border-slate-850 text-slate-400 px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all"
+                          >
+                            <FileText size={9} /> Details
+                          </button>
+                        )}
+
+                        {/* 5. Report Navigation */}
+                        <button 
+                          title="View Case Audit Report section"
+                          onClick={() => navigate(`/report/${caseDetails?.case?.case_id || caseData?.case_id}`)}
+                          className="flex items-center gap-1 bg-slate-950 hover:bg-slate-900 border border-slate-850 text-slate-400 px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all"
+                        >
+                          <ShieldAlert size={9} /> Report
+                        </button>
+                      </div>
+
+                    </div>
+                  </div>
+                );
+              })}
+              {currentTimelineEvents.length === 0 && (
+                <p className="text-slate-500 italic text-center py-8">No matching timeline events found.</p>
               )}
             </div>
           </div>
@@ -776,9 +908,49 @@ const GraphModule = ({ caseDetails }) => {
             logs={logs}
             onLogClick={handleLogClick}
             onStartReplay={handleStartReplay}
+            
+            // New intelligence prop bindings
+            transactions={caseDetails?.transactions || []}
+            entities={caseDetails?.case?.entities || {}}
+            onTxSelect={setSelectedTx}
+            onEntitySelect={setSelectedEntity}
+            onHighlightTrail={(txIds, nodeIds) => canvasRef.current?.highlightMoneyTrail(txIds, nodeIds)}
+            globalSearch={globalSearch}
+            setGlobalSearch={setGlobalSearch}
           />
         )}
       </div>
+
+      {/* Reusable Intelligence Drawer Overlay */}
+      {selectedTx && (
+        <TransactionDrilldownDrawer 
+          transaction={selectedTx}
+          allTransactions={caseDetails?.transactions || []}
+          onClose={() => setSelectedTx(null)}
+          onHighlightOnGraph={(txIds, nodeIds) => canvasRef.current?.highlightMoneyTrail(txIds, nodeIds)}
+        />
+      )}
+
+      {selectedEntity && (
+        <EntityIntelligencePanel
+          entity={selectedEntity}
+          allTransactions={caseDetails?.transactions || []}
+          initialNotes={entityNotes[selectedEntity.value] || ''}
+          onSaveNotes={handleSaveNotes}
+          onClose={() => setSelectedEntity(null)}
+          onHighlightOnGraph={(txIds, nodeIds) => canvasRef.current?.highlightMoneyTrail(txIds, nodeIds)}
+          onExplainRisk={(ent) => {
+            setSelectedNode({
+              id: ent.value,
+              accountId: ent.value,
+              nodeType: ent.type || 'account',
+              label: ent.value,
+              risk: ent.risk || 40
+            });
+            setSelectedEntity(null);
+          }}
+        />
+      )}
 
     </div>
   );

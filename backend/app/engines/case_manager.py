@@ -29,8 +29,8 @@ class CaseManager:
             status = "NEW"
 
         # Calculate totals
-        total_credits = sum(float(tx.get("amount", 0.0)) for tx in transactions if not tx.get("is_debit", True))
-        total_debits = sum(float(tx.get("amount", 0.0)) for tx in transactions if tx.get("is_debit", True))
+        total_credits = sum(float(tx.get("amount", 0.0)) for tx in transactions if not tx.get("is_debit", True) and not tx.get("is_internal_transfer", False))
+        total_debits = sum(float(tx.get("amount", 0.0)) for tx in transactions if tx.get("is_debit", True) and not tx.get("is_internal_transfer", False))
 
         # Identify high risk transactions (top contributors or amount > 50,000)
         high_risk_tx_ids = []

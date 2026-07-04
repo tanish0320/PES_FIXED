@@ -169,5 +169,41 @@ export const graphStyles = [
       'opacity': 0,
       'events': 'no'
     }
+  },
+  {
+    selector: 'node.dimmed, edge.dimmed',
+    style: {
+      'opacity': 0.15,
+      'events': 'no'
+    }
+  },
+  {
+    selector: '.highlighted-trail',
+    style: {
+      'line-color': '#a855f7',
+      'target-arrow-color': '#a855f7',
+      'border-color': '#a855f7',
+      'border-width': 5,
+      'opacity': 1,
+      'z-index': 200
+    }
+  },
+  {
+    selector: 'node.dimmed-search, edge.dimmed-search',
+    style: {
+      'opacity': 0.15,
+      'events': 'no'
+    }
+  },
+  {
+    selector: '.highlighted-search',
+    style: {
+      'line-color': '#e11d48',
+      'target-arrow-color': '#e11d48',
+      'border-color': '#e11d48',
+      'border-width': 5,
+      'opacity': 1,
+      'z-index': 200
+    }
   }
 ];

@@ -136,6 +136,17 @@ export const seedDemo = async () => {
   }
 };
 
+export const fetchCrossStatementIntelligence = async () => {
+  try {
+    const res = await fetch(`${API_BASE}/cross-statement-intelligence`);
+    if (!res.ok) throw new Error('Failed to fetch cross-statement intelligence');
+    return await res.json();
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
+};
+
 export const useDataStore = () => {
   const [state, setState] = useState(store);
 
@@ -159,6 +170,7 @@ export const useDataStore = () => {
     fetchReport,
     fetchStats,
     searchEntities,
-    seedDemo
+    seedDemo,
+    fetchCrossStatementIntelligence
   };
 };

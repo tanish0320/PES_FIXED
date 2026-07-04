@@ -10,7 +10,7 @@ export default function Cases() {
   const navigate = useNavigate();
   const { cases, fetchInvestigations, fetchInvestigation } = useDataStore();
   const [filter, setFilter] = useState('ALL');
-  const [sidebarState, setSidebarState] = useState({ isOpen: false, case: null, tx: null, actions: [] });
+  const [sidebarState, setSidebarState] = useState({ isOpen: false, case: null, tx: null, caseDetails: null, actions: [] });
   const role = getRole();
 
   const ALL_STATUSES = ['ALL', 'NEW', 'ANALYZED', 'HIGH_RISK', 'FLAGGED'];
@@ -30,6 +30,7 @@ export default function Cases() {
       setSidebarState({
         isOpen: true,
         case: details.case,
+        caseDetails: details,
         tx: firstTx,
         actions: details.case?.actions_taken || []
       });
@@ -153,7 +154,8 @@ export default function Cases() {
         isOpen={sidebarState.isOpen}
         selectedCase={sidebarState.case}
         selectedTransaction={sidebarState.tx}
-        actions={sidebarState.actions}
+        caseDetails={sidebarState.caseDetails}
+        onTxSelect={(newTx) => setSidebarState(prev => ({ ...prev, tx: newTx }))}
         onClose={() => setSidebarState({ ...sidebarState, isOpen: false })}
         role={role}
       />

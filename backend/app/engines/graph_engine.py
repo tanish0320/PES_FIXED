@@ -41,11 +41,18 @@ def add_edge(case_id: str, edge_data: dict, store: dict):
         
     graph["edges"].append(edge_data)
 
-def build_money_flow_graph(case_id: str, transactions: List[Dict[str, Any]], entities: Dict[str, Any], store: dict) -> dict:
+def build_money_flow_graph(case_id: str, transactions: List[Dict[str, Any]], entities: Dict[str, Any], store: dict, metrics: Dict[str, Any] = None) -> dict:
     """
     Construct node and edge collections for the money flow visualization.
     Integrates transactions and extracted entities.
     """
+    if metrics is None:
+        from app.engines.financial_metrics.metrics_engine import FinancialMetricsEngine
+        entities_copy = dict(entities)
+        # Avoid circular dependencies or missing patterns by passing empty list if missing
+        if "patterns" not in entities_copy:
+            entities_copy["patterns"] = []
+        metrics = FinancialMetricsEngine.compute_metrics(transactions, entities_copy, {"nodes": [], "edges": []})
     if not transactions:
         return {"nodes": [], "edges": []}
 
@@ -177,6 +184,13 @@ def build_money_flow_graph(case_id: str, transactions: List[Dict[str, Any]], ent
     holder_names = [n["value"] for n in entities.get("names", [])]
     holder_label = f"{holder_names[0]} (Owner)" if holder_names else f"Account {primary_acc}"
 
+    # Retrieve metrics for primary node
+    avg_holding = metrics["account_metrics"]["average_holding_time"]["value"]
+    retention_pct = metrics["account_metrics"]["balance_retention_percent"]["value"]
+    ben_count = metrics["account_metrics"]["unique_beneficiaries"]["value"]
+    velocity_val = metrics["transaction_metrics"]["transaction_velocity"]["value"]
+    tx_per_day = velocity_val.get("tx_per_day", 0.0) if isinstance(velocity_val, dict) else 0.0
+
     # Add Primary Account Node
     primary_node = {
         "account_id": primary_acc,
@@ -186,7 +200,13 @@ def build_money_flow_graph(case_id: str, transactions: List[Dict[str, Any]], ent
         "status": "suspicious" if primary_risk >= 60 else "active",
         "tx_count": tx_count,
         "total_inflow": total_inflow,
-        "total_outflow": total_outflow
+        "total_outflow": total_outflow,
+        "average_holding_time": str(avg_holding),
+        "money_retention": f"{retention_pct:.1f}%" if isinstance(retention_pct, (int, float)) else "0.0%",
+        "beneficiary_count": int(ben_count),
+        "velocity": f"{tx_per_day:.1f} tx/day",
+        "risk_contribution": f"{primary_risk:.0f}%",
+        "connected_transactions": int(tx_count)
     }
     add_node(case_id, primary_node, store)
 
@@ -196,6 +216,16 @@ def build_money_flow_graph(case_id: str, transactions: List[Dict[str, Any]], ent
         if cp_node["total_inflow"] > 100000 or cp_node["total_outflow"] > 100000:
             cp_node["risk"] = max(cp_node["risk"], 70.0)
             cp_node["status"] = "suspicious"
+        
+        # Populate counterparty hover fields
+        cp_node.update({
+            "average_holding_time": "N/A (External)",
+            "money_retention": "N/A (External)",
+            "beneficiary_count": 0,
+            "velocity": f"{cp_node['tx_count']} tx",
+            "risk_contribution": f"{cp_node['risk']:.0f}%",
+            "connected_transactions": int(cp_node["tx_count"])
+        })
         add_node(case_id, cp_node, store)
 
     # We are no longer adding orphan entity nodes (banks, upi_ids, merchants) 

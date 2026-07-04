@@ -15,8 +15,33 @@ class NormalizationEngine:
             # Channel Detection from narration keywords
             desc_lower = desc.lower()
             channel = "OTHER"
-            
-            if "upi" in desc_lower or "@" in desc_lower:
+
+            # Detect FD sweep / internal transfer transactions.
+            # These are bank-internal movements (e.g. FD creation/maturity, sweep-in/sweep-out)
+            # and must NOT be counted as external debits/credits.
+            FD_SWEEP_KEYWORDS = [
+                "transfer/debit for fd",
+                "transfer/credit for fd",
+                "fd a/c",
+                "fd account",
+                "fixed deposit",
+                "sweep in",
+                "sweep out",
+                "sweep-in",
+                "sweep-out",
+                "auto sweep",
+                "fd renewal",
+                "fd maturity",
+                "fd proceeds",
+                "fd closure",
+                "int.on fd",
+                "interest on fd",
+            ]
+            is_internal_transfer = any(kw in desc_lower for kw in FD_SWEEP_KEYWORDS)
+
+            if is_internal_transfer:
+                channel = "INTERNAL"
+            elif "upi" in desc_lower or "@" in desc_lower:
                 channel = "UPI"
             elif "imps" in desc_lower or "mmt/imps" in desc_lower or desc_lower.startswith("mps/"):
                 channel = "IMPS"
@@ -55,6 +80,7 @@ class NormalizationEngine:
                 "raw_description": raw_desc,
                 "amount": amount,
                 "is_debit": is_debit,
+                "is_internal_transfer": is_internal_transfer,
                 "sender_account": account_id if is_debit else "external",
                 "receiver_account": "external" if is_debit else account_id,
                 "channel": channel,

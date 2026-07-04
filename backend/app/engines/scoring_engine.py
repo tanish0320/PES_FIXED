@@ -1,38 +1,82 @@
 from typing import List, Dict, Any
 from collections import defaultdict
 
-def score_investigation(transactions: List[Dict[str, Any]], patterns: List[Dict[str, Any]], account_id: str) -> Dict[str, Any]:
+def score_investigation(
+    transactions: List[Dict[str, Any]],
+    patterns: List[Dict[str, Any]],
+    account_id: str,
+    entities: Dict[str, Any] = None,
+    graph: Dict[str, Any] = None,
+    metrics: Dict[str, Any] = None
+) -> Dict[str, Any]:
     """
     Consumes pattern detection output and computes investigation-level risk score.
-    Does NOT re-detect patterns.
+    Now relies entirely on the modular Financial Investigation Metrics Framework.
     """
-    # 1. Base Score calculation based on pattern severities
-    severity_map = {"High": 30.0, "Medium": 15.0, "Low": 5.0}
-    base_score = 0.0
-    for pat in patterns:
-        base_score += severity_map.get(pat.get("severity"), 5.0)
+    # Build or set dependencies
+    if entities is None:
+        from app.engines.entity_extractor import EntityExtractor
+        entities = EntityExtractor.extract_all(transactions)
     
-    # Cap base score at 75.0 to leave room for boosts
-    base_score = min(75.0, base_score)
+    # Propagate patterns to entities for the metrics engine
+    entities["patterns"] = patterns
+
+    if graph is None:
+        from app.engines.graph_engine import build_money_flow_graph
+        graph = build_money_flow_graph("TEMP", transactions, entities, {})
+
+    if metrics is None:
+        from app.engines.financial_metrics.metrics_engine import FinancialMetricsEngine
+        metrics = FinancialMetricsEngine.compute_metrics(transactions, entities, graph)
+
+    # 1. Base Score calculation based on Metric values and configurations
+    risk_score = 0.0
+
+    # Rapid Money Movement (+20)
+    rapid = metrics["transaction_metrics"]["rapid_money_movement"]
+    if rapid["value"]["count"] > 0:
+        risk_score += 20.0
+
+    # Circular Flow (+30)
+    cycle = metrics["graph_metrics"]["largest_cycle"]
+    if cycle["value"] > 0:
+        risk_score += 30.0
+
+    # Layer Depth (+15)
+    layer = metrics["graph_metrics"]["maximum_layer_depth"]
+    if layer["value"] >= 2:
+        risk_score += 15.0
+
+    # Velocity (+10)
+    velocity = metrics["transaction_metrics"]["transaction_velocity"]
+    if velocity["severity"] in ["High", "Medium"]:
+        risk_score += 10.0
+
+    # Immediate Balance Drain (+15)
+    drain = metrics["transaction_metrics"]["immediate_balance_drain"]
+    if drain["value"] >= 50.0:
+        risk_score += 15.0
+
+    # Round Amount % (+5)
+    round_amt = metrics["amount_metrics"]["round_amount_percent"]
+    if round_amt["metadata"].get("overall_round_percentage", 0.0) >= 30.0:
+        risk_score += 5.0
+
+    # Repeated Amounts (+10)
+    repeats = metrics["amount_metrics"]["repeated_amount_detector"]
+    if repeats["metadata"].get("total_repeated_count", 0) > 0:
+        risk_score += 10.0
+
+    # Pattern Density (+10)
+    density = metrics["investigation_metrics"]["pattern_density"]
+    if density["value"] >= 20.0:
+        risk_score += 10.0
+
+    final_score = int(min(100.0, risk_score))
     
-    # 2. Boosts
-    boost = 0.0
-    # +10 if multiple pattern types detected
-    if len(patterns) >= 2:
-        boost += 10.0
-    
-    # +10 if total volume > 10L
-    total_volume = sum(float(tx.get("amount", 0.0)) for tx in transactions)
-    if total_volume > 1000000:
-        boost += 10.0
-        
-    # +5 if high tx count
-    if len(transactions) > 100:
-        boost += 5.0
-        
-    final_score = int(min(100.0, base_score + boost))
+    # Set baseline minimum score for non-empty statement
     if final_score == 0 and transactions:
-        final_score = 15  # default baseline for non-empty statement
+        final_score = 15
 
     # Risk Level classification
     if final_score >= 80:
@@ -44,32 +88,33 @@ def score_investigation(transactions: List[Dict[str, Any]], patterns: List[Dict[
     else:
         risk_level = "LOW"
 
-    # Human-readable explanations
+    # Human-readable explanations compiled from metrics
     explanations = []
-    for pat in patterns:
-        explanations.append(pat.get("description", f"{pat['name']} detected"))
-        
-    if total_volume > 1000000:
-        vol_lakhs = total_volume / 100000
-        explanations.append(f"High volume transactional activity: \u20b9{vol_lakhs:.1f} Lakh processed")
-    if len(transactions) > 100:
-        explanations.append(f"High transaction count: {len(transactions)} rows analyzed")
+    for metric_res in metrics["all_metrics"]:
+        if metric_res.get("severity") in ["High", "Medium"] and metric_res.get("value") not in [0, 0.0, None, [], "N/A"]:
+            # Only list failed transaction if failed count > 0
+            if metric_res["name"] == "Failed Transactions":
+                if metric_res["value"].get("failed_count", 0) > 0:
+                    explanations.append(metric_res["description"])
+            else:
+                explanations.append(metric_res["description"])
 
     if not explanations:
         explanations.append("Routine transaction patterns with low risk indicators.")
 
-    # 3. Top Contributing Transactions
+    # 2. Top Contributing Transactions
+    # Identify largest inflow and outflow using metrics metadata
+    inflows = [t for t in transactions if not t.get("is_debit", True) and not t.get("is_internal_transfer", False)]
+    largest_inflow_tx = max(inflows, key=lambda x: x["amount"]) if inflows else None
+    
+    outflows = [t for t in transactions if t.get("is_debit", True) and not t.get("is_internal_transfer", False)]
+    largest_outflow_tx = max(outflows, key=lambda x: x["amount"]) if outflows else None
+
+    # Link related transactions to patterns
     tx_patterns = defaultdict(list)
     for pat in patterns:
         for tx_id in pat.get("related_transactions", []):
             tx_patterns[tx_id].append(pat["name"])
-
-    # Find largest inflow and outflow
-    inflows = [t for t in transactions if not t.get("is_debit", True)]
-    largest_inflow_tx = max(inflows, key=lambda x: x["amount"]) if inflows else None
-    
-    outflows = [t for t in transactions if t.get("is_debit", True)]
-    largest_outflow_tx = max(outflows, key=lambda x: x["amount"]) if outflows else None
 
     scored_txs = []
     for tx in transactions:

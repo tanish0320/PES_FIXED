@@ -24,11 +24,17 @@ class ReportGenerator:
     @classmethod
     def generate_report(cls, case: Dict[str, Any], transactions: List[Dict[str, Any]], 
                         patterns_data: Dict[str, Any], entities: Dict[str, Any], 
-                        graph: Dict[str, Any], timeline: List[Dict[str, Any]], 
-                        parser_stats: Dict[str, Any]) -> Dict[str, Any]:
+                        graph: Dict[str, Any], timeline: Any, 
+                        parser_stats: Dict[str, Any], metrics: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Generate a comprehensive, analyst-ready investigation report.
         """
+        if metrics is None:
+            from app.engines.financial_metrics.metrics_engine import FinancialMetricsEngine
+            entities_copy = dict(entities)
+            entities_copy["patterns"] = patterns_data.get("patterns", [])
+            metrics = FinancialMetricsEngine.compute_metrics(transactions, entities_copy, graph)
+
         account_id = case.get("account_id", "Unknown")
         risk_score = case.get("risk_score", 0.0)
         risk_level = case.get("risk_level", "LOW")
@@ -41,6 +47,8 @@ class ReportGenerator:
         beneficiaries_map = {} # counterparty -> {total_received, tx_count}
 
         for tx in transactions:
+            if tx.get("is_internal_transfer", False):
+                continue
             amount = tx.get("amount", 0.0)
             is_debit = tx.get("is_debit", True)
             
@@ -99,27 +107,29 @@ class ReportGenerator:
         holder_names = [n["value"] for n in entities.get("names", [])]
         holder_name = holder_names[0] if holder_names else "Account Holder"
 
-        # Generate Executive Summary Text
-        period_str = ""
-        if transactions:
-            sorted_by_date = sorted(transactions, key=lambda x: x["date"])
-            start_date = sorted_by_date[0]["date"].strftime("%b %Y")
-            end_date = sorted_by_date[-1]["date"].strftime("%b %Y")
-            period_str = f"over a period of {start_date} to {end_date}"
+        # Generate Executive Summary Text using modular financial metrics (AI Summary)
+        holding_time = metrics["account_metrics"]["average_holding_time"]["value"]
+        retention_pct = metrics["account_metrics"]["balance_retention_percent"]["value"]
+        ben_count = metrics["account_metrics"]["unique_beneficiaries"]["value"]
+        velocity_val = metrics["transaction_metrics"]["transaction_velocity"]["value"]
+        tx_per_day = velocity_val.get("tx_per_day", 0.0) if isinstance(velocity_val, dict) else 0.0
+        
+        velocity_level = "high" if tx_per_day >= 10 else "moderate" if tx_per_day >= 3 else "low"
+        
+        risk_indicator = "potential layering"
+        if risk_score >= 80:
+            risk_indicator = "severe layering and money laundering risk"
+        elif risk_score >= 60:
+            risk_indicator = "suspicious pass-through routing/layering"
+        elif risk_score >= 40:
+            risk_indicator = "moderate layering indicators"
         else:
-            period_str = "over the analyzed period"
-
-        pattern_desc_str = ""
-        if pattern_names:
-            pattern_desc_str = f"reveals multiple suspicious behaviors including {', '.join(pattern_names[:3])}"
-        else:
-            pattern_desc_str = "shows standard operational patterns with low overall anomaly levels"
+            risk_indicator = "low anomaly profile"
 
         exec_summary = (
-            f"Account {account_id} ({holder_name}) shows {risk_level.lower()}-risk activity with a risk score of {int(risk_score)}/100. "
-            f"Analysis of {len(transactions)} transactions {period_str} {pattern_desc_str}. "
-            f"Total volume processed: credit flow of {cls.format_inr(total_inflow)} and debit flow of {cls.format_inr(total_outflow)}. "
-            f"Immediate review and investigation are recommended."
+            f"The account exhibits {velocity_level} transaction velocity with an average holding time of only {holding_time}. "
+            f"Funds are rapidly distributed to {ben_count} beneficiaries while retaining only {retention_pct:.1f}% of incoming balances, "
+            f"indicating {risk_indicator} (overall investigation risk score is {int(risk_score)}/100, flagged as {risk_level.upper()})."
         )
 
         # Graph summary details
@@ -176,7 +186,8 @@ class ReportGenerator:
             },
             "detected_patterns": patterns,
             "risk_explanation": risk_explanation,
-            "timeline": timeline[:50],  # Limit timeline preview in report to top 50 events
+            "timeline": timeline.get("case_timeline", [])[:50] if isinstance(timeline, dict) else timeline[:50],
+            "timelines": timeline if isinstance(timeline, dict) else {"case_timeline": timeline},
             "money_flow_summary": {
                 "total_inflow": total_inflow,
                 "total_outflow": total_outflow,
@@ -189,7 +200,8 @@ class ReportGenerator:
             "extracted_entities": entities,
             "parser_statistics": parser_stats,
             "graph_summary": graph_summary,
-            "recommended_next_steps": next_steps
+            "recommended_next_steps": next_steps,
+            "financial_metrics": metrics
         }
 
         return report
