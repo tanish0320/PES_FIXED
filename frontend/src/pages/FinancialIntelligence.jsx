@@ -249,19 +249,11 @@ export default function FinancialIntelligence() {
                       <div
                         key={cycle.cycle_id}
                         onClick={() => setSelectedCycle(cycle)}
-                        className={`p-4 border-l-4 rounded cursor-pointer transition-all hover:shadow-md ${
-                          cycle.risk_score >= 70
-                            ? 'border-red-500 bg-red-950 hover:bg-red-900'
-                            : cycle.risk_score >= 50
-                            ? 'border-amber-500 bg-amber-950 hover:bg-amber-900'
-                            : 'border-blue-500 bg-blue-950 hover:bg-blue-900'
-                        }`}
+                        className="p-4 border-l-4 border-blue-500 bg-slate-800 rounded cursor-pointer transition-all hover:shadow-md hover:bg-slate-700"
                       >
                         <div className="flex justify-between items-start mb-2">
                           <h3 className="font-bold text-slate-100">{cycle.cycle_id}</h3>
-                          <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                            cycle.risk_score >= 70 ? 'bg-red-200 text-red-800' : 'bg-blue-200 text-blue-800'
-                          }`}>
+                          <span className="px-3 py-1 rounded-full text-sm font-semibold bg-blue-900 text-blue-200">
                             Risk: {cycle.risk_score.toFixed(0)}%
                           </span>
                         </div>
