@@ -696,6 +696,9 @@ const GraphCanvas = forwardRef(({
       const cy = cyRef.current;
       if (!cy) return;
 
+      // Clear previous animations
+      cy.elements().removeClass('money-trail-active money-trail-glow');
+
       // Fade all nodes except those in the trail
       const trailNodeIds = new Set(accounts.map(String));
 
@@ -722,37 +725,16 @@ const GraphCanvas = forwardRef(({
 
         if (matchingEdges.length > 0) {
           const edge = matchingEdges[0];
-          edge.style({
-            'line-color': '#4ecdc4',
-            'target-arrow-color': '#4ecdc4',
-            'width': 5,
-            'opacity': 1,
-            'z-index': 1000
-          });
+          edge.addClass('money-trail-active');
 
           // Highlight the destination node
           const targetNode = cy.getElementById(target);
           if (targetNode.length > 0) {
-            const originalBgColor = targetNode.style('background-color');
-            const originalBorderWidth = targetNode.style('border-width');
-            const originalBorderColor = targetNode.style('border-color');
-
-            // Make node glow: bright cyan background + thick bright border
-            targetNode.style({
-              'background-color': '#00ff99',
-              'border-width': 4,
-              'border-color': '#00ffcc',
-              'opacity': 1,
-              'z-index': 999
-            });
+            targetNode.addClass('money-trail-glow');
 
             // After animation, reset the node
             setTimeout(() => {
-              targetNode.style({
-                'background-color': originalBgColor,
-                'border-width': originalBorderWidth,
-                'border-color': originalBorderColor
-              });
+              targetNode.removeClass('money-trail-glow');
             }, 600);
           }
         }
@@ -768,20 +750,13 @@ const GraphCanvas = forwardRef(({
       const cy = cyRef.current;
       if (!cy) return;
 
-      cy.nodes().style({
-        'opacity': 1,
-        'border-width': null,
-        'border-color': null
-      });
-
-      cy.edges().forEach(edge => {
-        edge.style({
-          'opacity': 1,
-          'width': null,
-          'line-color': null,
-          'target-arrow-color': null,
-          'z-index': 'auto'
-        });
+      cy.elements().removeClass('money-trail-active money-trail-glow');
+      cy.nodes().style('opacity', 1);
+      cy.edges().style({
+        'opacity': null,
+        'width': null,
+        'line-color': null,
+        'target-arrow-color': null
       });
     },
 
