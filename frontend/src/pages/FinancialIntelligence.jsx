@@ -127,15 +127,15 @@ export default function FinancialIntelligence() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
+    <div className="min-h-screen bg-slate-950 p-8 text-slate-100">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-slate-900 flex items-center gap-3 mb-2">
+          <h1 className="text-4xl font-bold text-slate-100 flex items-center gap-3 mb-2">
             <Zap className="text-amber-500" size={32} />
             Financial Intelligence
           </h1>
-          <p className="text-slate-600">
+          <p className="text-slate-400">
             {mode === 'global'
               ? 'Cross-statement circular money traversal, money trails, and network analysis'
               : 'Case-specific financial analysis and investigation insights'
@@ -149,7 +149,7 @@ export default function FinancialIntelligence() {
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
                 mode === 'global'
                   ? 'bg-blue-600 text-white shadow-md'
-                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
               }`}
             >
               <Globe size={18} />
@@ -160,7 +160,7 @@ export default function FinancialIntelligence() {
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
                 mode === 'case'
                   ? 'bg-blue-600 text-white shadow-md'
-                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                  : 'bg-slate-200 text-slate-300 hover:bg-slate-300'
               }`}
             >
               <Filter size={18} />
@@ -171,7 +171,7 @@ export default function FinancialIntelligence() {
 
         {/* Error Banner */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+          <div className="mb-6 p-4 bg-red-950 border border-red-200 rounded-lg flex items-start gap-3">
             <AlertCircle className="text-red-500 mt-0.5 flex-shrink-0" size={20} />
             <div className="text-red-700">{error}</div>
           </div>
@@ -195,7 +195,7 @@ export default function FinancialIntelligence() {
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
                     activeTab === tab.id
                       ? 'bg-blue-600 text-white shadow-md'
-                      : 'bg-white text-slate-700 border border-slate-200 hover:border-blue-300'
+                      : 'bg-slate-800 text-slate-300 border border-slate-700 hover:border-blue-500'
                   }`}
                 >
                   <Icon size={18} />
@@ -210,7 +210,7 @@ export default function FinancialIntelligence() {
         {loading && (
           <div className="flex items-center justify-center p-12">
             <Loader className="animate-spin text-blue-500 mr-3" size={24} />
-            <span className="text-slate-600">Loading...</span>
+            <span className="text-slate-400">Loading...</span>
           </div>
         )}
 
@@ -224,24 +224,24 @@ export default function FinancialIntelligence() {
 
             {/* Circular Money Traversal */}
             {activeTab === 'cycles' && cycles && (
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-2xl font-bold text-slate-900 mb-4">Detected Cycles</h2>
+              <div className="bg-slate-900 rounded-lg shadow-md p-6 border border-slate-800 border border-slate-800">
+                <h2 className="text-2xl font-bold text-slate-100 mb-4">Detected Cycles</h2>
                 {cycles.cycle_count === 0 ? (
-                  <p className="text-slate-600">No circular money flows detected.</p>
+                  <p className="text-slate-400">No circular money flows detected.</p>
                 ) : (
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                      <div className="bg-blue-50 p-4 rounded-lg">
+                      <div className="bg-blue-950 p-4 rounded-lg">
                         <div className="text-3xl font-bold text-blue-600">{cycles.cycle_count}</div>
-                        <div className="text-sm text-slate-600">Total Cycles</div>
+                        <div className="text-sm text-slate-400">Total Cycles</div>
                       </div>
-                      <div className="bg-red-50 p-4 rounded-lg">
+                      <div className="bg-red-950 p-4 rounded-lg">
                         <div className="text-3xl font-bold text-red-600">{cycles.high_risk_cycles?.length || 0}</div>
-                        <div className="text-sm text-slate-600">High-Risk (≥70%)</div>
+                        <div className="text-sm text-slate-400">High-Risk (≥70%)</div>
                       </div>
-                      <div className="bg-amber-50 p-4 rounded-lg">
+                      <div className="bg-amber-950 p-4 rounded-lg">
                         <div className="text-3xl font-bold text-amber-600">${(cycles.total_volume_in_cycles / 1000000).toFixed(1)}M</div>
-                        <div className="text-sm text-slate-600">Total Volume</div>
+                        <div className="text-sm text-slate-400">Total Volume</div>
                       </div>
                     </div>
 
@@ -251,24 +251,24 @@ export default function FinancialIntelligence() {
                         onClick={() => setSelectedCycle(cycle)}
                         className={`p-4 border-l-4 rounded cursor-pointer transition-all hover:shadow-md ${
                           cycle.risk_score >= 70
-                            ? 'border-red-500 bg-red-50 hover:bg-red-100'
+                            ? 'border-red-500 bg-red-950 hover:bg-red-100'
                             : cycle.risk_score >= 50
-                            ? 'border-amber-500 bg-amber-50 hover:bg-amber-100'
-                            : 'border-blue-500 bg-blue-50 hover:bg-blue-100'
+                            ? 'border-amber-500 bg-amber-950 hover:bg-amber-100'
+                            : 'border-blue-500 bg-blue-950 hover:bg-blue-100'
                         }`}
                       >
                         <div className="flex justify-between items-start mb-2">
-                          <h3 className="font-bold text-slate-900">{cycle.cycle_id}</h3>
+                          <h3 className="font-bold text-slate-100">{cycle.cycle_id}</h3>
                           <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
                             cycle.risk_score >= 70 ? 'bg-red-200 text-red-800' : 'bg-blue-200 text-blue-800'
                           }`}>
                             Risk: {cycle.risk_score.toFixed(0)}%
                           </span>
                         </div>
-                        <p className="text-slate-700 mb-2">
+                        <p className="text-slate-300 mb-2">
                           <strong>Path:</strong> {cycle.accounts.join(' → ')}
                         </p>
-                        <p className="text-slate-600 text-sm">
+                        <p className="text-slate-400 text-sm">
                           <strong>Hops:</strong> {cycle.steps} | <strong>Amount:</strong> ${(cycle.total_amount / 100000).toFixed(2)}L | <strong>Duration:</strong> {cycle.duration_days} days
                         </p>
                         <p className="text-xs text-slate-500 mt-2">Click to view cycle graph</p>
@@ -281,9 +281,9 @@ export default function FinancialIntelligence() {
 
             {/* Money Trails */}
             {activeTab === 'trails' && (
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-2xl font-bold text-slate-900 mb-4">FIFO Money Trails</h2>
-                <p className="text-slate-600 mb-4">First-In-First-Out allocation traces how money flows through accounts. Click on any account to view its flow visualization.</p>
+              <div className="bg-slate-900 rounded-lg shadow-md p-6 border border-slate-800 border border-slate-800">
+                <h2 className="text-2xl font-bold text-slate-100 mb-4">FIFO Money Trails</h2>
+                <p className="text-slate-400 mb-4">First-In-First-Out allocation traces how money flows through accounts. Click on any account to view its flow visualization.</p>
                 {!trails ? (
                   <button
                     onClick={loadTrails}
@@ -294,25 +294,25 @@ export default function FinancialIntelligence() {
                 ) : (
                   <div>
                     {trails.account_count === 0 ? (
-                      <p className="text-slate-600">No money trails detected.</p>
+                      <p className="text-slate-400">No money trails detected.</p>
                     ) : (
                       <div className="space-y-3">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                          <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-600">
+                          <div className="bg-blue-950 p-4 rounded-lg border-l-4 border-blue-600">
                             <div className="text-3xl font-bold text-blue-600">{trails.account_count}</div>
-                            <div className="text-sm text-slate-600">Accounts Tracked</div>
+                            <div className="text-sm text-slate-400">Accounts Tracked</div>
                           </div>
-                          <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-600">
+                          <div className="bg-green-950 p-4 rounded-lg border-l-4 border-green-600">
                             <div className="text-2xl font-bold text-green-600">
                               {formatCurrency(Object.values(trails.accounts || {}).reduce((sum, a) => sum + (a.total_inflow || 0), 0))}
                             </div>
-                            <div className="text-sm text-slate-600">Total Inflow</div>
+                            <div className="text-sm text-slate-400">Total Inflow</div>
                           </div>
-                          <div className="bg-red-50 p-4 rounded-lg border-l-4 border-red-600">
+                          <div className="bg-red-950 p-4 rounded-lg border-l-4 border-red-600">
                             <div className="text-2xl font-bold text-red-600">
                               {formatCurrency(Object.values(trails.accounts || {}).reduce((sum, a) => sum + (a.total_outflow || 0), 0))}
                             </div>
-                            <div className="text-sm text-slate-600">Total Outflow</div>
+                            <div className="text-sm text-slate-400">Total Outflow</div>
                           </div>
                         </div>
 
@@ -320,10 +320,10 @@ export default function FinancialIntelligence() {
                           <div
                             key={accountId}
                             onClick={() => setSelectedTrail({ id: accountId, ...data })}
-                            className="p-4 border border-slate-200 rounded-lg cursor-pointer hover:shadow-md hover:bg-blue-50 transition-all"
+                            className="p-4 border border-slate-700 rounded-lg cursor-pointer hover:shadow-md hover:bg-slate-700 transition-all"
                           >
                             <div className="flex justify-between items-start mb-2">
-                              <h3 className="font-bold text-slate-900 text-sm">{accountId}</h3>
+                              <h3 className="font-bold text-slate-100 text-sm">{accountId}</h3>
                             </div>
                             <div className="grid grid-cols-3 gap-4 mb-2">
                               <div>
@@ -341,7 +341,7 @@ export default function FinancialIntelligence() {
                                 </p>
                               </div>
                             </div>
-                            <p className="text-xs text-slate-600">{data.transaction_count || 0} transactions • Click to view details</p>
+                            <p className="text-xs text-slate-400">{data.transaction_count || 0} transactions • Click to view details</p>
                           </div>
                         ))}
                       </div>
@@ -353,8 +353,8 @@ export default function FinancialIntelligence() {
 
             {/* Top Money Hubs */}
             {activeTab === 'hubs' && (
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-2xl font-bold text-slate-900 mb-4">Top Money Hubs</h2>
+              <div className="bg-slate-900 rounded-lg shadow-md p-6 border border-slate-800">
+                <h2 className="text-2xl font-bold text-slate-100 mb-4">Top Money Hubs</h2>
                 {!hubs ? (
                   <button
                     onClick={loadHubs}
@@ -365,12 +365,12 @@ export default function FinancialIntelligence() {
                 ) : (
                   <div>
                     {hubs.count === 0 ? (
-                      <p className="text-slate-600">No money hubs found.</p>
+                      <p className="text-slate-400">No money hubs found.</p>
                     ) : (
                       <div className="space-y-2">
                         {hubs.hubs.map((hub, idx) => (
-                          <div key={idx} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
-                            <span className="font-medium text-slate-900">#{idx + 1} {hub.account_id}</span>
+                          <div key={idx} className="flex justify-between items-center p-3 bg-slate-800 rounded-lg">
+                            <span className="font-medium text-slate-100">#{idx + 1} {hub.account_id}</span>
                             <span className="text-blue-600 font-bold">${(hub.total_volume / 1000000).toFixed(2)}M</span>
                           </div>
                         ))}
@@ -383,8 +383,8 @@ export default function FinancialIntelligence() {
 
             {/* Cross-Statement Search */}
             {activeTab === 'search' && (
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-2xl font-bold text-slate-900 mb-4">Cross-Statement Search</h2>
+              <div className="bg-slate-900 rounded-lg shadow-md p-6 border border-slate-800">
+                <h2 className="text-2xl font-bold text-slate-100 mb-4">Cross-Statement Search</h2>
                 <form onSubmit={handleSearch} className="mb-6">
                   <div className="flex gap-2">
                     <input
@@ -406,19 +406,19 @@ export default function FinancialIntelligence() {
                 {searchResults && (
                   <div className="space-y-6">
                     {searchResults.account && (
-                      <div className="p-4 bg-blue-50 rounded-lg">
-                        <h3 className="font-bold text-slate-900 mb-2">Account</h3>
-                        <p className="text-slate-700 mb-2"><strong>ID:</strong> {searchResults.account.account?.account_id}</p>
-                        <p className="text-slate-700 mb-2"><strong>Bank:</strong> {searchResults.account.account?.bank_name || 'Unknown'}</p>
-                        <p className="text-slate-700 mb-2"><strong>Transactions:</strong> {searchResults.account.transaction_count}</p>
-                        <p className="text-slate-700"><strong>Net Flow:</strong> ${(searchResults.account.net_flow / 100000).toFixed(2)}L</p>
+                      <div className="p-4 bg-blue-950 rounded-lg">
+                        <h3 className="font-bold text-slate-100 mb-2">Account</h3>
+                        <p className="text-slate-300 mb-2"><strong>ID:</strong> {searchResults.account.account?.account_id}</p>
+                        <p className="text-slate-300 mb-2"><strong>Bank:</strong> {searchResults.account.account?.bank_name || 'Unknown'}</p>
+                        <p className="text-slate-300 mb-2"><strong>Transactions:</strong> {searchResults.account.transaction_count}</p>
+                        <p className="text-slate-300"><strong>Net Flow:</strong> ${(searchResults.account.net_flow / 100000).toFixed(2)}L</p>
                       </div>
                     )}
                     {searchResults.entity && (
-                      <div className="p-4 bg-green-50 rounded-lg">
-                        <h3 className="font-bold text-slate-900 mb-2">Entities Found</h3>
-                        <p className="text-slate-700 mb-2"><strong>Matches:</strong> {searchResults.entity.count}</p>
-                        <div className="text-sm text-slate-600">
+                      <div className="p-4 bg-green-950 rounded-lg">
+                        <h3 className="font-bold text-slate-100 mb-2">Entities Found</h3>
+                        <p className="text-slate-300 mb-2"><strong>Matches:</strong> {searchResults.entity.count}</p>
+                        <div className="text-sm text-slate-400">
                           {searchResults.entity.matches.slice(0, 5).map((m, i) => (
                             <div key={i}>{m.value} ({m.type})</div>
                           ))}
@@ -426,7 +426,7 @@ export default function FinancialIntelligence() {
                       </div>
                     )}
                     {!searchResults.account && !searchResults.entity && (
-                      <p className="text-slate-600">No results found for "{searchResults.query}"</p>
+                      <p className="text-slate-400">No results found for "{searchResults.query}"</p>
                     )}
                   </div>
                 )}
@@ -437,18 +437,18 @@ export default function FinancialIntelligence() {
 
         {/* Case Investigation Mode */}
         {!loading && mode === 'case' && (
-          <div className="bg-white rounded-lg shadow-md p-8">
+          <div className="bg-slate-900 rounded-lg shadow-md p-8">
             <div className="text-center">
               <Filter size={48} className="mx-auto text-slate-400 mb-4" />
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">Case Investigation Analysis</h2>
-              <p className="text-slate-600 mb-6">
+              <h2 className="text-2xl font-bold text-slate-100 mb-2">Case Investigation Analysis</h2>
+              <p className="text-slate-400 mb-6">
                 Select a case from the Investigations tab to analyze case-specific financial patterns and insights.
               </p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
-                <p className="text-slate-700 mb-4">
+              <div className="bg-blue-950 border border-blue-200 rounded-lg p-6 mb-6">
+                <p className="text-slate-300 mb-4">
                   <strong>Case Investigation Mode Features:</strong>
                 </p>
-                <ul className="text-left max-w-md mx-auto space-y-2 text-slate-600">
+                <ul className="text-left max-w-md mx-auto space-y-2 text-slate-400">
                   <li>✓ Transaction history for selected case</li>
                   <li>✓ Case-specific entity relationships</li>
                   <li>✓ Account flow analysis</li>
@@ -465,7 +465,7 @@ export default function FinancialIntelligence() {
                 </a>
                 <button
                   onClick={() => handleModeChange('global')}
-                  className="inline-block px-6 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-medium"
+                  className="inline-block px-6 py-2 bg-slate-200 text-slate-300 rounded-lg hover:bg-slate-300 font-medium"
                 >
                   Back to Global Dataset
                 </button>
@@ -477,16 +477,16 @@ export default function FinancialIntelligence() {
         {/* Money Trail Modal */}
         {selectedTrail && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
+            <div className="bg-slate-900 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
               <div className="p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h2 className="text-2xl font-bold text-slate-900">FIFO Money Trail: {selectedTrail.id}</h2>
-                    <p className="text-slate-600 mt-1">First-In-First-Out Money Flow Analysis</p>
+                    <h2 className="text-2xl font-bold text-slate-100">FIFO Money Trail: {selectedTrail.id}</h2>
+                    <p className="text-slate-400 mt-1">First-In-First-Out Money Flow Analysis</p>
                   </div>
                   <button
                     onClick={() => setSelectedTrail(null)}
-                    className="text-slate-500 hover:text-slate-700 text-2xl font-bold"
+                    className="text-slate-500 hover:text-slate-300 text-2xl font-bold"
                   >
                     ×
                   </button>
@@ -494,16 +494,16 @@ export default function FinancialIntelligence() {
 
                 {/* Key Metrics */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-600">
-                    <p className="text-slate-600 text-xs uppercase tracking-wide font-semibold">Total Inflow</p>
+                  <div className="bg-green-950 p-4 rounded-lg border-l-4 border-green-600">
+                    <p className="text-slate-400 text-xs uppercase tracking-wide font-semibold">Total Inflow</p>
                     <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(selectedTrail.total_inflow)}</p>
                   </div>
-                  <div className="bg-red-50 p-4 rounded-lg border-l-4 border-red-600">
-                    <p className="text-slate-600 text-xs uppercase tracking-wide font-semibold">Total Outflow</p>
+                  <div className="bg-red-950 p-4 rounded-lg border-l-4 border-red-600">
+                    <p className="text-slate-400 text-xs uppercase tracking-wide font-semibold">Total Outflow</p>
                     <p className="text-2xl font-bold text-red-600 mt-1">{formatCurrency(selectedTrail.total_outflow)}</p>
                   </div>
-                  <div className={`p-4 rounded-lg border-l-4 ${selectedTrail.net_flow >= 0 ? 'bg-blue-50 border-blue-600' : 'bg-orange-50 border-orange-600'}`}>
-                    <p className="text-slate-600 text-xs uppercase tracking-wide font-semibold">Net Flow</p>
+                  <div className={`p-4 rounded-lg border-l-4 ${selectedTrail.net_flow >= 0 ? 'bg-blue-950 border-blue-600' : 'bg-orange-950 border-orange-600'}`}>
+                    <p className="text-slate-400 text-xs uppercase tracking-wide font-semibold">Net Flow</p>
                     <p className={`text-2xl font-bold mt-1 ${selectedTrail.net_flow >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
                       {formatCurrency(Math.abs(selectedTrail.net_flow))}
                     </p>
@@ -511,8 +511,8 @@ export default function FinancialIntelligence() {
                 </div>
 
                 {/* FIFO Flow Visualization */}
-                <div className="mb-6 p-6 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg border border-slate-200">
-                  <h3 className="text-lg font-bold text-slate-900 mb-4">Money Flow Diagram (FIFO Principle)</h3>
+                <div className="mb-6 p-6 bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg border border-slate-700">
+                  <h3 className="text-lg font-bold text-slate-100 mb-4">Money Flow Diagram (FIFO Principle)</h3>
                   <svg viewBox="0 0 800 400" className="w-full h-80">
                     <defs>
                       <marker id="arrowInflow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
@@ -569,13 +569,13 @@ export default function FinancialIntelligence() {
                 </div>
 
                 {/* FIFO Explanation */}
-                <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <h3 className="font-bold text-slate-900 mb-2">FIFO Allocation Method</h3>
-                  <p className="text-slate-700 text-sm mb-3">
+                <div className="mb-6 p-4 bg-blue-950 rounded-lg border border-blue-200">
+                  <h3 className="font-bold text-slate-100 mb-2">FIFO Allocation Method</h3>
+                  <p className="text-slate-300 text-sm mb-3">
                     This account received <strong>{formatCurrency(selectedTrail.total_inflow)}</strong> across multiple transactions. Using FIFO (First-In-First-Out) principle, the oldest money received is allocated first when this account sends money out.
                   </p>
-                  <div className="bg-white p-3 rounded border border-blue-200">
-                    <p className="text-xs text-slate-600">
+                  <div className="bg-slate-900 p-3 rounded border border-blue-200">
+                    <p className="text-xs text-slate-400">
                       <strong>Net Position:</strong> {selectedTrail.net_flow >= 0 ? 'Money Receiver' : 'Money Sender'} -
                       {selectedTrail.net_flow >= 0 ? 'Received' : 'Sent'} <strong>{formatCurrency(Math.abs(selectedTrail.net_flow))}</strong> more than {selectedTrail.net_flow >= 0 ? 'sent' : 'received'}
                     </p>
@@ -597,16 +597,16 @@ export default function FinancialIntelligence() {
         {/* Cycle Graph Modal */}
         {selectedCycle && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
+            <div className="bg-slate-900 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
               <div className="p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h2 className="text-2xl font-bold text-slate-900">Round-Trip Pattern: {selectedCycle.cycle_id}</h2>
-                    <p className="text-slate-600 mt-1">Circular Money Flow Visualization</p>
+                    <h2 className="text-2xl font-bold text-slate-100">Round-Trip Pattern: {selectedCycle.cycle_id}</h2>
+                    <p className="text-slate-400 mt-1">Circular Money Flow Visualization</p>
                   </div>
                   <button
                     onClick={() => setSelectedCycle(null)}
-                    className="text-slate-500 hover:text-slate-700 text-2xl font-bold"
+                    className="text-slate-500 hover:text-slate-300 text-2xl font-bold"
                   >
                     ×
                   </button>
@@ -614,35 +614,35 @@ export default function FinancialIntelligence() {
 
                 {/* Key Metrics */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                  <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-600">
-                    <p className="text-slate-600 text-xs uppercase tracking-wide font-semibold">Risk Score</p>
+                  <div className="bg-blue-950 p-4 rounded-lg border-l-4 border-blue-600">
+                    <p className="text-slate-400 text-xs uppercase tracking-wide font-semibold">Risk Score</p>
                     <p className={`text-3xl font-bold mt-1 ${
                       selectedCycle.risk_score >= 70 ? 'text-red-600' :
                       selectedCycle.risk_score >= 50 ? 'text-amber-600' :
                       'text-blue-600'
                     }`}>{selectedCycle.risk_score.toFixed(0)}%</p>
                   </div>
-                  <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-600">
-                    <p className="text-slate-600 text-xs uppercase tracking-wide font-semibold">Total Amount</p>
+                  <div className="bg-green-950 p-4 rounded-lg border-l-4 border-green-600">
+                    <p className="text-slate-400 text-xs uppercase tracking-wide font-semibold">Total Amount</p>
                     <p className="text-2xl font-bold text-green-600 mt-1">
                       ₹{(selectedCycle.total_amount >= 1000000
                         ? (selectedCycle.total_amount / 1000000).toFixed(1) + 'M'
                         : (selectedCycle.total_amount / 1000).toFixed(1) + 'K')}
                     </p>
                   </div>
-                  <div className="bg-purple-50 p-4 rounded-lg border-l-4 border-purple-600">
-                    <p className="text-slate-600 text-xs uppercase tracking-wide font-semibold">Hops</p>
+                  <div className="bg-purple-950 p-4 rounded-lg border-l-4 border-purple-600">
+                    <p className="text-slate-400 text-xs uppercase tracking-wide font-semibold">Hops</p>
                     <p className="text-3xl font-bold text-purple-600 mt-1">{selectedCycle.steps}</p>
                   </div>
-                  <div className="bg-orange-50 p-4 rounded-lg border-l-4 border-orange-600">
-                    <p className="text-slate-600 text-xs uppercase tracking-wide font-semibold">Duration</p>
+                  <div className="bg-orange-950 p-4 rounded-lg border-l-4 border-orange-600">
+                    <p className="text-slate-400 text-xs uppercase tracking-wide font-semibold">Duration</p>
                     <p className="text-2xl font-bold text-orange-600 mt-1">{selectedCycle.duration_days}d</p>
                   </div>
                 </div>
 
                 {/* SVG Graph Visualization */}
-                <div className="mb-6 p-6 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg border border-slate-200">
-                  <h3 className="text-lg font-bold text-slate-900 mb-4">Money Flow Path</h3>
+                <div className="mb-6 p-6 bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg border border-slate-700">
+                  <h3 className="text-lg font-bold text-slate-100 mb-4">Money Flow Path</h3>
                   <svg viewBox="0 0 900 500" className="w-full h-96">
                     <defs>
                       <marker id="arrowForward" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
@@ -780,15 +780,15 @@ export default function FinancialIntelligence() {
                 </div>
 
                 {/* Account Path Details */}
-                <div className="mb-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
-                  <h3 className="font-bold text-slate-900 mb-3">Account Sequence</h3>
+                <div className="mb-6 p-4 bg-slate-800 rounded-lg border border-slate-700">
+                  <h3 className="font-bold text-slate-100 mb-3">Account Sequence</h3>
                   <div className="flex flex-wrap gap-2 items-center justify-start text-sm">
                     {selectedCycle.accounts && selectedCycle.accounts.map((acc, idx) => (
                       <span key={idx}>
                         <span className={`inline-block px-3 py-1 rounded-full font-mono text-xs font-bold ${
                           idx === 0 ? 'bg-red-100 text-red-900' :
                           idx === selectedCycle.accounts.length - 1 ? 'bg-blue-100 text-blue-900' :
-                          'bg-slate-200 text-slate-900'
+                          'bg-slate-200 text-slate-100'
                         }`}>
                           {acc}
                         </span>
