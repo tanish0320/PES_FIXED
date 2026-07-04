@@ -437,39 +437,37 @@ export default function FinancialIntelligence() {
 
         {/* Case Investigation Mode */}
         {!loading && mode === 'case' && (
-          <div className="p-8">
-            <div className="text-center">
-              <Filter size={48} className="mx-auto text-slate-400 mb-4" />
-              <h2 className="text-2xl font-bold text-slate-100 mb-2">Case Investigation Analysis</h2>
-              <p className="text-slate-400 mb-6">
-                Select a case from the Investigations tab to analyze case-specific financial patterns and insights.
+          <div className="text-center">
+            <Filter size={48} className="mx-auto text-slate-400 mb-4" />
+            <h2 className="text-2xl font-bold text-slate-100 mb-2">Case Investigation Analysis</h2>
+            <p className="text-slate-400 mb-6">
+              Select a case from the Investigations tab to analyze case-specific financial patterns and insights.
+            </p>
+            <div className="bg-blue-950 border border-blue-800 rounded-lg p-6 mb-6 inline-block max-w-2xl">
+              <p className="text-slate-300 mb-4">
+                <strong>Case Investigation Mode Features:</strong>
               </p>
-              <div className="bg-blue-950 border border-blue-800 rounded-lg p-6 mb-6">
-                <p className="text-slate-300 mb-4">
-                  <strong>Case Investigation Mode Features:</strong>
-                </p>
-                <ul className="text-left max-w-md mx-auto space-y-2 text-slate-400">
-                  <li>✓ Transaction history for selected case</li>
-                  <li>✓ Case-specific entity relationships</li>
-                  <li>✓ Account flow analysis</li>
-                  <li>✓ Risk assessment for case</li>
-                  <li>✓ Timeline and pattern detection</li>
-                </ul>
-              </div>
-              <div className="space-x-4">
-                <a
-                  href="/investigations"
-                  className="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-                >
-                  Go to Investigations
-                </a>
-                <button
-                  onClick={() => handleModeChange('global')}
-                  className="inline-block px-6 py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 font-medium"
-                >
-                  Back to Global Dataset
-                </button>
-              </div>
+              <ul className="text-left space-y-2 text-slate-400">
+                <li>✓ Transaction history for selected case</li>
+                <li>✓ Case-specific entity relationships</li>
+                <li>✓ Account flow analysis</li>
+                <li>✓ Risk assessment for case</li>
+                <li>✓ Timeline and pattern detection</li>
+              </ul>
+            </div>
+            <div className="mt-6 space-x-4">
+              <a
+                href="/investigations"
+                className="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+              >
+                Go to Investigations
+              </a>
+              <button
+                onClick={() => handleModeChange('global')}
+                className="inline-block px-6 py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 font-medium"
+              >
+                Back to Global Dataset
+              </button>
             </div>
           </div>
         )}
