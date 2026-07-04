@@ -24,6 +24,7 @@ export default function FinancialIntelligence() {
   const [searchResults, setSearchResults] = useState(null);
   const [error, setError] = useState(null);
   const [selectedCycle, setSelectedCycle] = useState(null);
+  const [selectedTrail, setSelectedTrail] = useState(null);
 
   // Load cycles (flagship feature) on mount
   useEffect(() => {
@@ -275,24 +276,73 @@ export default function FinancialIntelligence() {
             {activeTab === 'trails' && (
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h2 className="text-2xl font-bold text-slate-900 mb-4">FIFO Money Trails</h2>
+                <p className="text-slate-600 mb-4">First-In-First-Out allocation traces how money flows through accounts. Click on any account to view its flow visualization.</p>
                 {!trails ? (
                   <button
                     onClick={loadTrails}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
                   >
                     Load Money Trails
                   </button>
                 ) : (
                   <div>
-                    <p className="text-slate-600 mb-4">
-                      {trails.account_count === 0
-                        ? 'No money trails detected.'
-                        : `Found ${trails.account_count} accounts with money trails.`}
-                    </p>
-                    <div className="text-xs text-slate-500">
-                      <p className="mb-2">Money trails use FIFO (First-In-First-Out) allocation to trace credit flows through accounts.</p>
-                      <p>Refer to money-trails API for detailed allocation per account.</p>
-                    </div>
+                    {trails.account_count === 0 ? (
+                      <p className="text-slate-600">No money trails detected.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                          <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-600">
+                            <div className="text-3xl font-bold text-blue-600">{trails.account_count}</div>
+                            <div className="text-sm text-slate-600">Accounts Tracked</div>
+                          </div>
+                          <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-600">
+                            <div className="text-3xl font-bold text-green-600">
+                              ₹{(Object.values(trails.accounts || {}).reduce((sum, a) => sum + (a.total_inflow || 0), 0) / 1e6).toFixed(0)}M
+                            </div>
+                            <div className="text-sm text-slate-600">Total Inflow</div>
+                          </div>
+                          <div className="bg-red-50 p-4 rounded-lg border-l-4 border-red-600">
+                            <div className="text-3xl font-bold text-red-600">
+                              ₹{(Object.values(trails.accounts || {}).reduce((sum, a) => sum + (a.total_outflow || 0), 0) / 1e6).toFixed(0)}M
+                            </div>
+                            <div className="text-sm text-slate-600">Total Outflow</div>
+                          </div>
+                        </div>
+
+                        {trails.accounts && Object.entries(trails.accounts).map(([accountId, data]) => (
+                          <div
+                            key={accountId}
+                            onClick={() => setSelectedTrail({ id: accountId, ...data })}
+                            className="p-4 border border-slate-200 rounded-lg cursor-pointer hover:shadow-md hover:bg-blue-50 transition-all"
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <h3 className="font-bold text-slate-900 text-sm">{accountId}</h3>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4 mb-2">
+                              <div>
+                                <p className="text-xs text-slate-500 uppercase font-semibold">Inflow</p>
+                                <p className="text-sm font-bold text-green-600">
+                                  ₹{(data.total_inflow >= 1e6 ? (data.total_inflow / 1e6).toFixed(1) + 'M' : (data.total_inflow / 1e3).toFixed(1) + 'K')}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-slate-500 uppercase font-semibold">Outflow</p>
+                                <p className="text-sm font-bold text-red-600">
+                                  ₹{(data.total_outflow >= 1e6 ? (data.total_outflow / 1e6).toFixed(1) + 'M' : (data.total_outflow / 1e3).toFixed(1) + 'K')}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-slate-500 uppercase font-semibold">Net Flow</p>
+                                <p className={`text-sm font-bold ${data.net_flow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  ₹{(Math.abs(data.net_flow) >= 1e6 ? (Math.abs(data.net_flow) / 1e6).toFixed(1) + 'M' : (Math.abs(data.net_flow) / 1e3).toFixed(1) + 'K')}
+                                </p>
+                              </div>
+                            </div>
+                            <p className="text-xs text-slate-600">{data.transaction_count || 0} transactions • Click to view details</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -415,6 +465,136 @@ export default function FinancialIntelligence() {
                   className="inline-block px-6 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-medium"
                 >
                   Back to Global Dataset
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Money Trail Modal */}
+        {selectedTrail && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900">FIFO Money Trail: {selectedTrail.id}</h2>
+                    <p className="text-slate-600 mt-1">First-In-First-Out Money Flow Analysis</p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedTrail(null)}
+                    className="text-slate-500 hover:text-slate-700 text-2xl font-bold"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                {/* Key Metrics */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-600">
+                    <p className="text-slate-600 text-xs uppercase tracking-wide font-semibold">Total Inflow</p>
+                    <p className="text-3xl font-bold text-green-600 mt-1">
+                      ₹{(selectedTrail.total_inflow >= 1e9 ? (selectedTrail.total_inflow / 1e9).toFixed(1) + 'B' :
+                        selectedTrail.total_inflow >= 1e6 ? (selectedTrail.total_inflow / 1e6).toFixed(1) + 'M' :
+                        (selectedTrail.total_inflow / 1e3).toFixed(1) + 'K')}
+                    </p>
+                  </div>
+                  <div className="bg-red-50 p-4 rounded-lg border-l-4 border-red-600">
+                    <p className="text-slate-600 text-xs uppercase tracking-wide font-semibold">Total Outflow</p>
+                    <p className="text-3xl font-bold text-red-600 mt-1">
+                      ₹{(selectedTrail.total_outflow >= 1e9 ? (selectedTrail.total_outflow / 1e9).toFixed(1) + 'B' :
+                        selectedTrail.total_outflow >= 1e6 ? (selectedTrail.total_outflow / 1e6).toFixed(1) + 'M' :
+                        (selectedTrail.total_outflow / 1e3).toFixed(1) + 'K')}
+                    </p>
+                  </div>
+                  <div className={`p-4 rounded-lg border-l-4 ${selectedTrail.net_flow >= 0 ? 'bg-blue-50 border-blue-600' : 'bg-orange-50 border-orange-600'}`}>
+                    <p className="text-slate-600 text-xs uppercase tracking-wide font-semibold">Net Flow</p>
+                    <p className={`text-3xl font-bold mt-1 ${selectedTrail.net_flow >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                      ₹{(Math.abs(selectedTrail.net_flow) >= 1e9 ? (Math.abs(selectedTrail.net_flow) / 1e9).toFixed(1) + 'B' :
+                        Math.abs(selectedTrail.net_flow) >= 1e6 ? (Math.abs(selectedTrail.net_flow) / 1e6).toFixed(1) + 'M' :
+                        (Math.abs(selectedTrail.net_flow) / 1e3).toFixed(1) + 'K')}
+                    </p>
+                  </div>
+                </div>
+
+                {/* FIFO Flow Visualization */}
+                <div className="mb-6 p-6 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg border border-slate-200">
+                  <h3 className="text-lg font-bold text-slate-900 mb-4">Money Flow Diagram (FIFO Principle)</h3>
+                  <svg viewBox="0 0 800 400" className="w-full h-80">
+                    <defs>
+                      <marker id="arrowInflow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#16a34a" />
+                      </marker>
+                      <marker id="arrowOutflow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#dc2626" />
+                      </marker>
+                      <filter id="glow">
+                        <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                        <feMerge>
+                          <feMergeNode in="coloredBlur"/>
+                          <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                      </filter>
+                    </defs>
+
+                    {/* Inflow box */}
+                    <rect x="50" y="120" width="140" height="160" fill="#dcfce7" stroke="#16a34a" strokeWidth="2" rx="8" />
+                    <text x="120" y="150" textAnchor="middle" className="text-sm font-bold" fill="#166534">INFLOW</text>
+                    <text x="120" y="250" textAnchor="middle" className="text-lg font-bold" fill="#16a34a">
+                      ₹{(selectedTrail.total_inflow >= 1e6 ? (selectedTrail.total_inflow / 1e6).toFixed(1) + 'M' : (selectedTrail.total_inflow / 1e3).toFixed(1) + 'K')}
+                    </text>
+
+                    {/* Account circle */}
+                    <circle cx="400" cy="200" r="60" fill="#dbeafe" stroke="#3b82f6" strokeWidth="3" filter="url(#glow)" />
+                    <text x="400" y="190" textAnchor="middle" className="text-xs font-bold" fill="#0c4a6e">{selectedTrail.id.substring(0, 12)}</text>
+                    <text x="400" y="210" textAnchor="middle" className="text-xs font-bold" fill="#0c4a6e">ACCOUNT</text>
+
+                    {/* Outflow box */}
+                    <rect x="610" y="120" width="140" height="160" fill="#fee2e2" stroke="#dc2626" strokeWidth="2" rx="8" />
+                    <text x="680" y="150" textAnchor="middle" className="text-sm font-bold" fill="#991b1b">OUTFLOW</text>
+                    <text x="680" y="250" textAnchor="middle" className="text-lg font-bold" fill="#dc2626">
+                      ₹{(selectedTrail.total_outflow >= 1e6 ? (selectedTrail.total_outflow / 1e6).toFixed(1) + 'M' : (selectedTrail.total_outflow / 1e3).toFixed(1) + 'K')}
+                    </text>
+
+                    {/* Arrows */}
+                    <line x1="190" y1="200" x2="340" y2="200" stroke="#16a34a" strokeWidth="3" markerEnd="url(#arrowInflow)" />
+                    <line x1="460" y1="200" x2="610" y2="200" stroke="#dc2626" strokeWidth="3" markerEnd="url(#arrowOutflow)" />
+
+                    {/* Labels */}
+                    <text x="265" y="190" textAnchor="middle" className="text-xs font-bold" fill="#16a34a">Receives</text>
+                    <text x="535" y="190" textAnchor="middle" className="text-xs font-bold" fill="#dc2626">Sends</text>
+
+                    {/* Legend */}
+                    <g transform="translate(50, 320)">
+                      <line x1="0" y1="0" x2="20" y2="0" stroke="#16a34a" strokeWidth="2" markerEnd="url(#arrowInflow)" />
+                      <text x="30" y="4" className="text-xs font-semibold" fill="#1e293b">Incoming Money (FIFO Receives First)</text>
+
+                      <line x1="360" y1="0" x2="380" y2="0" stroke="#dc2626" strokeWidth="2" markerEnd="url(#arrowOutflow)" />
+                      <text x="390" y="4" className="text-xs font-semibold" fill="#1e293b">Outgoing Money (FIFO Sends First)</text>
+                    </g>
+                  </svg>
+                </div>
+
+                {/* FIFO Explanation */}
+                <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <h3 className="font-bold text-slate-900 mb-2">FIFO Allocation Method</h3>
+                  <p className="text-slate-700 text-sm mb-3">
+                    This account received <strong>₹{(selectedTrail.total_inflow >= 1e6 ? (selectedTrail.total_inflow / 1e6).toFixed(1) + 'M' : (selectedTrail.total_inflow / 1e3).toFixed(1) + 'K')}</strong> across multiple transactions. Using FIFO (First-In-First-Out) principle, the oldest money received is allocated first when this account sends money out.
+                  </p>
+                  <div className="bg-white p-3 rounded border border-blue-200">
+                    <p className="text-xs text-slate-600">
+                      <strong>Net Position:</strong> {selectedTrail.net_flow >= 0 ? 'Money Receiver' : 'Money Sender'} -
+                      {selectedTrail.net_flow >= 0 ? 'Received' : 'Sent'} <strong>₹{(Math.abs(selectedTrail.net_flow) >= 1e6 ? (Math.abs(selectedTrail.net_flow) / 1e6).toFixed(1) + 'M' : (Math.abs(selectedTrail.net_flow) / 1e3).toFixed(1) + 'K')}</strong> more than {selectedTrail.net_flow >= 0 ? 'sent' : 'received'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Close Button */}
+                <button
+                  onClick={() => setSelectedTrail(null)}
+                  className="w-full px-4 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Close Visualization
                 </button>
               </div>
             </div>
