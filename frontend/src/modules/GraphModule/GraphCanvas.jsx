@@ -763,40 +763,116 @@ const GraphCanvas = forwardRef(({
     // Auto-trace money path from selected node
     autoTraceMoneyPath: (nodeId) => {
       const cy = cyRef.current;
-      if (!cy) return;
+      if (!cy || !nodeId) return;
 
-      const startNode = cy.getElementById(nodeId);
+      // Debug log
+      console.log('[Money Trail] Starting trace from node:', nodeId);
+
+      const startNode = cy.getElementById(String(nodeId));
+      console.log('[Money Trail] Start node found:', startNode.length > 0);
       if (startNode.length === 0) return;
 
-      // ponytail: DFS to find first path - simple trace for demo
+      // Find outgoing edges from this node
       const visited = new Set();
-      const path = [];
+      const path = [String(nodeId)];
+      visited.add(String(nodeId));
 
-      const dfs = (node) => {
-        const id = String(node.id());
-        if (visited.has(id)) return false;
-        visited.add(id);
-        path.push(id);
+      let currentNode = startNode;
+      let iterations = 0;
+      const maxIterations = 10; // Prevent infinite loops
+
+      while (iterations < maxIterations) {
+        iterations++;
+        const currentId = String(currentNode.id());
 
         // Find outgoing edges
-        const outgoing = node.connectedEdges().filter(e => e.source().id() === id);
-        if (outgoing.length === 0) return true; // Found a leaf - end of trail
+        const outgoing = currentNode.connectedEdges().filter(e =>
+          String(e.source().id()) === currentId
+        );
 
-        for (let edge of outgoing) {
-          const target = edge.target();
-          if (dfs(target)) return true;
-        }
+        console.log('[Money Trail] Outgoing edges from', currentId, ':', outgoing.length);
 
-        path.pop();
-        return false;
-      };
+        if (outgoing.length === 0) break; // No more edges, stop
 
-      if (dfs(startNode) && path.length > 1) {
-        // Call the animation with the path
-        cyRef.current.elements().removeClass('highlighted-search').removeClass('dimmed-search');
+        // Take the first outgoing edge
+        const nextEdge = outgoing[0];
+        const nextNode = nextEdge.target();
+        const nextId = String(nextNode.id());
 
-        // Animation will run
-        this.animateMoneyTrail(path, path.map(() => 0), 0);
+        if (visited.has(nextId)) break; // Avoid cycles
+        visited.add(nextId);
+        path.push(nextId);
+
+        currentNode = nextNode;
+      }
+
+      console.log('[Money Trail] Final path:', path);
+
+      if (path.length > 1) {
+        // Clear previous highlights
+        cy.elements().removeClass('highlighted-search dimmed-search');
+
+        // Call animateMoneyTrail via the handle
+        console.log('[Money Trail] Animating path with', path.length, 'nodes');
+
+        // Manually run the animation code here
+        cy.elements().removeClass('money-trail-active money-trail-glow');
+
+        // Fade all nodes except those in the trail
+        const trailNodeIds = new Set(path.map(String));
+
+        cy.nodes().forEach(node => {
+          if (!trailNodeIds.has(String(node.id()))) {
+            node.style('opacity', 0.15);
+          } else {
+            node.style('opacity', 1);
+          }
+        });
+
+        // Animate edges sequentially
+        let edgeIndex = 0;
+        const animateNextEdge = () => {
+          if (edgeIndex >= path.length - 1) {
+            console.log('[Money Trail] Animation complete');
+            return;
+          }
+
+          const source = String(path[edgeIndex]);
+          const target = String(path[edgeIndex + 1]);
+
+          console.log('[Money Trail] Animating edge:', source, '->', target);
+
+          // Find and highlight the edge
+          const matchingEdges = cy.edges().filter(e =>
+            String(e.source().id()) === source && String(e.target().id()) === target
+          );
+
+          console.log('[Money Trail] Found matching edges:', matchingEdges.length);
+
+          if (matchingEdges.length > 0) {
+            const edge = matchingEdges[0];
+            edge.addClass('money-trail-active');
+
+            // Highlight the destination node
+            const targetNode = cy.getElementById(target);
+            if (targetNode.length > 0) {
+              console.log('[Money Trail] Adding glow to node:', target);
+              targetNode.addClass('money-trail-glow');
+
+              // After animation, reset the node
+              setTimeout(() => {
+                targetNode.removeClass('money-trail-glow');
+              }, 600);
+            }
+          }
+
+          edgeIndex++;
+          setTimeout(animateNextEdge, 600);
+        };
+
+        animateNextEdge();
+      } else {
+        console.log('[Money Trail] Path too short:', path.length);
       }
     }
   }));
