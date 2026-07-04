@@ -18,17 +18,7 @@ export const fetchCycles = () =>
   }));
 
 export const fetchMoneyTrails = (accountId) =>
-  Promise.resolve({
-    account_count: 58,
-    accounts: {
-      ACC001: {
-        trails: [{source_tx: "TXN1", current_tx: "TXN2", allocated_amount: 100000}],
-        total_inflow: 500000,
-        total_outflow: 450000,
-        balance_now: 50000
-      }
-    }
-  });
+  fetch(`${API_BASE}/analytics/money-trails${accountId ? `?account_id=${accountId}` : ''}`).then(r => r.json());
 
 export const fetchTopMoneyHubs = (limit = 10) =>
   fetch(`${API_BASE}/analytics/top-money-hubs?limit=${limit}`).then(r => r.json()).then(data => ({
@@ -37,17 +27,17 @@ export const fetchTopMoneyHubs = (limit = 10) =>
   }));
 
 export const fetchAccount = (id) =>
-  Promise.resolve({
-    account: {account_id: id, holder_name: "Sample", bank_name: "Bank"},
+  fetch(`${API_BASE}/analytics/account/${id}`).then(r => r.json()).catch(() => ({
+    account: {account_id: id, holder_name: "Unknown", bank_name: "Unknown"},
     transactions: [],
     transaction_count: 0,
     inflow: 0,
     outflow: 0,
     net_flow: 0
-  });
+  }));
 
 export const fetchEntity = (value) =>
-  Promise.resolve({value, matches: [], count: 0});
+  fetch(`${API_BASE}/analytics/entity/${value}`).then(r => r.json()).catch(() => ({value, matches: [], count: 0}));
 
 export const fetchHighRiskNetwork = () =>
   fetchGlobalAnalytics().then(data => ({
