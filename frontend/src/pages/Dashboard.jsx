@@ -5,6 +5,7 @@ import {
   UploadCloud, AlertOctagon, Layers, Search, RefreshCw, X
 } from 'lucide-react';
 import { useDataStore } from '../hooks/useDataStore';
+import { useCopilot } from '../components/CopilotContext';
 import { 
   ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, 
   Tooltip, BarChart, Bar, Cell, PieChart, Pie, Legend
@@ -28,6 +29,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { stats, cases, loading, fetchStats, fetchInvestigations, fetchInvestigation } = useDataStore();
 
+  const { setDashboardStats } = useCopilot();
+
   const [globalSearch, setGlobalSearch] = useState('');
   
   // Detailed case details for drilldown computation
@@ -43,6 +46,15 @@ export default function Dashboard() {
     fetchStats();
     fetchInvestigations();
   }, []);
+
+  useEffect(() => {
+    if (stats) {
+      setDashboardStats(stats);
+    }
+    return () => {
+      setDashboardStats({});
+    };
+  }, [stats, setDashboardStats]);
 
   // Fetch detailed information for all cases when loaded
   useEffect(() => {

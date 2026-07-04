@@ -5,6 +5,7 @@ import CopilotInput from './CopilotInput';
 import CopilotMessage from './CopilotMessage';
 import SuggestedQuestions from './SuggestedQuestions';
 import TypingIndicator from './TypingIndicator';
+import { routeAndExecute } from '../../copilot/intentRouter';
 import { Sparkles, MessageSquare, AlertCircle } from 'lucide-react';
 import './Copilot.css';
 
@@ -23,8 +24,13 @@ export default function CopilotPopup() {
     selectedNode,
     selectedTransaction,
     selectedCase,
+    setSelectedCase,
     currentPage,
-    currentFilters
+    currentFilters,
+    toolHandlers,
+    currentTimeline,
+    graphState,
+    dashboardStats
   } = useCopilot();
 
   const [inputText, setInputText] = useState('');
@@ -149,107 +155,151 @@ export default function CopilotPopup() {
     setInputText('');
     setLoading(true);
     setStreaming(true);
-    setStreamText('');
+    setStreamText('Analyzing graph...');
     setAutoScroll(true);
 
-    try {
-      const payload = {
-        message: text,
-        case_id: selectedCase,
-        selected_node: selectedNode,
-        page: currentPage,
-        filters: currentFilters || {}
-      };
+    // Setup active context helper object
+    const copilotContext = {
+      isOpen, setIsOpen, messages, setMessages, loading, setLoading,
+      streaming, setStreaming, selectedNode, selectedTransaction,
+      selectedCase, setSelectedCase, currentPage, currentFilters, toolHandlers,
+      currentTimeline, graphState, dashboardStats
+    };
 
-      const response = await fetch(`${API_BASE}/api/copilot/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server returned code ${response.status}`);
+    // Cyclical status message simulation
+    const progressMessages = [
+      "Analyzing graph...",
+      "Checking transactions...",
+      "Reviewing investigation...",
+      "Finding evidence...",
+      "Preparing response..."
+    ];
+    let msgIdx = 0;
+    const progressInterval = setInterval(() => {
+      if (msgIdx < progressMessages.length - 1) {
+        msgIdx++;
+        setStreamText(progressMessages[msgIdx]);
       }
+    }, 1200);
 
-      setLoading(false);
+    // Check if handled by direct client-side tool execution
+    setTimeout(async () => {
+      try {
+        // 1. Try running client-side tool routing
+        try {
+          const toolResponse = routeAndExecute(text, copilotContext);
+          if (toolResponse) {
+            clearInterval(progressInterval);
+            setMessages([...updatedMessages, toolResponse]);
+            setLoading(false);
+            setStreaming(false);
+            setStreamText('');
+            return;
+          }
+        } catch (err) {
+          console.warn("Client-side tool execution failed:", err);
+        }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder('utf-8');
-      let buffer = '';
-      let finalData = null;
+        // 2. Fallback to Ollama backend API
+        const payload = {
+          message: text,
+          case_id: selectedCase,
+          selected_node: selectedNode,
+          page: currentPage,
+          filters: currentFilters || {}
+        };
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        const response = await fetch(`${API_BASE}/api/copilot/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
 
-        const chunk = decoder.decode(value, { stream: true });
-        buffer += chunk;
+        if (!response.ok) {
+          throw new Error(`Server returned code ${response.status}`);
+        }
 
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+        let finalData = null;
 
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const parsed = JSON.parse(line);
-            if (parsed.type === 'token') {
-              setStreamText(prev => prev + parsed.delta);
-            } else if (parsed.type === 'final') {
-              finalData = parsed.data;
-            } else if (parsed.type === 'error') {
-              throw new Error(parsed.message || "Model failed");
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          buffer += chunk;
+
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const parsed = JSON.parse(line);
+              if (parsed.type === 'token') {
+                clearInterval(progressInterval);
+                setStreamText(prev => prev === 'Analyzing graph...' ? parsed.delta : prev + parsed.delta);
+              } else if (parsed.type === 'final') {
+                finalData = parsed.data;
+              } else if (parsed.type === 'error') {
+                throw new Error(parsed.message || "Model failed");
+              }
+            } catch (e) {
+              console.warn("Failed to parse JSON stream chunk:", e, line);
             }
-          } catch (e) {
-            console.warn("Failed to parse JSON stream chunk:", e, line);
           }
         }
-      }
 
-      if (finalData) {
-        setMessages([...updatedMessages, { sender: 'assistant', structured: true, data: finalData }]);
-      } else {
-        // Fallback
+        clearInterval(progressInterval); // Ensure progress interval is cleared
+
+        if (finalData) {
+          setMessages([...updatedMessages, { sender: 'assistant', structured: true, data: finalData }]);
+        } else {
+          // Fallback
+          setMessages([
+            ...updatedMessages,
+            {
+              sender: 'assistant',
+              structured: true,
+              data: {
+                answer: streamText || "Forensic analysis completed.",
+                evidence: [],
+                confidence: 70,
+                sources: ["Sentinel System Stream"],
+                suggested_actions: [],
+                follow_up_questions: getPageSuggestions()
+              }
+            }
+          ]);
+        }
+      } catch (err) {
+        clearInterval(progressInterval);
+        console.error("Copilot streaming failed:", err);
         setMessages([
           ...updatedMessages,
           {
             sender: 'assistant',
             structured: true,
             data: {
-              answer: streamText || "Forensic analysis completed.",
+              answer: "**AI Copilot Offline**\n\nUnable to connect to local Qwen model. Please verify Ollama is pulled and running locally.",
               evidence: [],
-              confidence: 70,
-              sources: ["Sentinel System Stream"],
+              confidence: 0,
+              sources: ["System Error Boundary"],
               suggested_actions: [],
-              follow_up_questions: getPageSuggestions()
+              follow_up_questions: ["Retry health check", "Reload dashboard"]
             }
           }
         ]);
+      } finally {
+        setLoading(false);
+        setStreaming(false);
+        setStreamText('');
       }
-      setStreamText('');
-    } catch (err) {
-      console.error("Copilot streaming failed:", err);
-      setMessages([
-        ...updatedMessages,
-        {
-          sender: 'assistant',
-          structured: true,
-          data: {
-            answer: "**AI Copilot Offline**\n\nUnable to connect to local Qwen model. Please verify Ollama is pulled and running locally.",
-            evidence: [],
-            confidence: 0,
-            sources: ["System Error Boundary"],
-            suggested_actions: [],
-            follow_up_questions: ["Retry health check", "Reload dashboard"]
-          }
-        }
-      ]);
-    } finally {
-      setLoading(false);
-      setStreaming(false);
-      setStreamText('');
-    }
+    }, 100);
   };
 
   const handleSuggestionSelect = (q) => {

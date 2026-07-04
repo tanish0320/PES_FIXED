@@ -26,7 +26,16 @@ const GraphModule = ({ caseDetails }) => {
   const [selectedNode, setSelectedNode] = useState(null);
   const [showTimeline, setShowTimeline] = useState(false);
 
-  const { setSelectedGraphNode, setCurrentReport } = useCopilot();
+  const { 
+    setSelectedGraphNode, 
+    setSelectedReport, 
+    setCurrentTimeline,
+    setGraphState,
+    setSelectedCase,
+    setSelectedTransaction,
+    setSearchQuery,
+    registerToolHandler
+  } = useCopilot();
 
   useEffect(() => {
     // Write node selection to CopilotContext state
@@ -35,14 +44,41 @@ const GraphModule = ({ caseDetails }) => {
   }, [selectedNode, setSelectedGraphNode]);
 
   useEffect(() => {
-    if (caseDetails?.report) {
-      setCurrentReport(caseDetails.report);
+    if (caseDetails) {
+      setSelectedCase(caseDetails.case_id || caseDetails.id);
+      if (caseDetails.report) {
+        setSelectedReport(caseDetails.report);
+        setCurrentTimeline(caseDetails.report.timeline || []);
+      }
+      if (caseDetails.graph) {
+        setGraphState(caseDetails.graph);
+      }
     }
     return () => {
-      setSelectedGraphNode(null);
-      setCurrentReport(null);
+      setSelectedCase(null);
+      setSelectedReport(null);
+      setCurrentTimeline([]);
+      setGraphState({ nodes: [], edges: [] });
     };
-  }, [caseDetails, setSelectedGraphNode, setCurrentReport]);
+  }, [caseDetails, setSelectedCase, setSelectedReport, setCurrentTimeline, setGraphState]);
+
+  useEffect(() => {
+    if (canvasRef.current) {
+      registerToolHandler('highlightNode', (nodeId) => canvasRef.current.highlightNode?.(nodeId));
+      registerToolHandler('highlightNodes', (nodeIds) => canvasRef.current.focusNodes?.(nodeIds));
+      registerToolHandler('traceMoneyFlow', (nodeId) => canvasRef.current.traceMoneyFlow?.(nodeId));
+      registerToolHandler('expandNetwork', (nodeId) => canvasRef.current.expandNetwork?.(nodeId));
+      registerToolHandler('showOnlySuspicious', () => canvasRef.current.highlightSuspicious?.());
+      registerToolHandler('resetGraph', () => canvasRef.current.clearHighlights?.());
+      registerToolHandler('zoomToNode', (nodeId) => canvasRef.current.highlightNode?.(nodeId));
+      registerToolHandler('selectTransaction', (txId) => {
+        if (caseDetails?.transactions) {
+          const found = caseDetails.transactions.find(t => t.id === txId || t.transaction_id === txId);
+          if (found) setSelectedTx(found);
+        }
+      });
+    }
+  }, [canvasRef.current, registerToolHandler, caseDetails]);
   const [logs, setLogs] = useState([]);
   const canvasRef = useRef(null);
   const role = getRole();
@@ -59,11 +95,18 @@ const GraphModule = ({ caseDetails }) => {
   const [showIntro, setShowIntro] = useState(true);
   const [showSummaryCard, setShowSummaryCard] = useState(false);
 
-  // New intelligence states
   const [selectedTx, setSelectedTx] = useState(null);
   const [selectedEntity, setSelectedEntity] = useState(null);
   const [entityNotes, setEntityNotes] = useState({});
   const [globalSearch, setGlobalSearch] = useState('');
+
+  useEffect(() => {
+    setSelectedTransaction(selectedTx ? (selectedTx.id || selectedTx.transaction_id) : null);
+  }, [selectedTx, setSelectedTransaction]);
+
+  useEffect(() => {
+    setSearchQuery(globalSearch);
+  }, [globalSearch, setSearchQuery]);
 
   const speedRef = useRef(playbackSpeed);
 

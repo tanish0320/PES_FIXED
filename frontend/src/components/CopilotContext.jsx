@@ -32,6 +32,31 @@ export function CopilotProvider({ children }) {
   const [currentFilters, setCurrentFilters] = useState({});
   const [conversationId, setConversationId] = useState(null);
 
+  // Extended state variables
+  const [selectedEdge, setSelectedEdge] = useState(null);
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [currentTimeline, setCurrentTimeline] = useState([]);
+  const [graphState, setGraphState] = useState({ nodes: [], edges: [] });
+  const [dashboardStats, setDashboardStats] = useState({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [conversationHistory, setConversationHistory] = useState([]);
+
+  // Client-side tool registry
+  const [toolHandlers, setToolHandlers] = useState({});
+
+  const registerToolHandler = (name, handler) => {
+    setToolHandlers(prev => ({ ...prev, [name]: handler }));
+  };
+
+  const executeTool = (name, ...args) => {
+    if (toolHandlers[name]) {
+      console.log(`[Copilot Tool Engine] Executing: ${name}`, args);
+      return toolHandlers[name](...args);
+    }
+    console.warn(`[Copilot Tool Engine] Tool not found: ${name}`);
+    return null;
+  };
+
   const value = {
     isOpen,
     setIsOpen,
@@ -52,7 +77,28 @@ export function CopilotProvider({ children }) {
     currentFilters,
     setCurrentFilters,
     conversationId,
-    setConversationId
+    setConversationId,
+    
+    // Extended states
+    selectedEdge,
+    setSelectedEdge,
+    selectedReport,
+    setSelectedReport,
+    currentTimeline,
+    setCurrentTimeline,
+    graphState,
+    setGraphState,
+    dashboardStats,
+    setDashboardStats,
+    searchQuery,
+    setSearchQuery,
+    conversationHistory,
+    setConversationHistory,
+    
+    // Registry handlers
+    toolHandlers,
+    registerToolHandler,
+    executeTool
   };
 
   return (

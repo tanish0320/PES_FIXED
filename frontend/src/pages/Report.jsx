@@ -7,6 +7,7 @@ import {
   GitBranch, HelpCircle, Layers
 } from 'lucide-react';
 import { useDataStore } from '../hooks/useDataStore';
+import { useCopilot } from '../components/CopilotContext';
 import { 
   TransactionDrilldownDrawer, 
   EntityIntelligencePanel 
@@ -25,6 +26,8 @@ export default function Report() {
   const { fetchReport, fetchInvestigation } = useDataStore();
   const role = getRole();
   const isViewer = role !== 'admin';
+
+  const { setSelectedCase, setSelectedReport, setCurrentTimeline } = useCopilot();
 
   const [report, setReport] = useState(null);
   const [caseDetails, setCaseDetails] = useState(null);
@@ -49,6 +52,21 @@ export default function Report() {
 
   // Local storage notes state for active entity panel
   const [entityNotes, setEntityNotes] = useState({});
+
+  useEffect(() => {
+    if (caseId) {
+      setSelectedCase(caseId);
+    }
+    if (report) {
+      setSelectedReport(report);
+      setCurrentTimeline(report.timeline || []);
+    }
+    return () => {
+      setSelectedCase(null);
+      setSelectedReport(null);
+      setCurrentTimeline([]);
+    };
+  }, [caseId, report, setSelectedCase, setSelectedReport, setCurrentTimeline]);
 
   useEffect(() => {
     async function loadData() {
