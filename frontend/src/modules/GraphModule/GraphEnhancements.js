@@ -179,12 +179,14 @@ export class MoneyTrailAnimator {
           'z-index': 1000
         });
 
-        // Highlight the destination node
+        // Highlight the destination node with glow effect
         const targetNode = this.cy.getElementById(target);
         targetNode.style({
-          'background-color': '#4ecdc4',
-          'border-width': 3,
-          'border-color': '#00d4aa'
+          'border-width': 4,
+          'border-color': '#4ecdc4',
+          'box-shadow': '0 0 20px #4ecdc4',
+          'overlay-color': '#4ecdc4',
+          'overlay-opacity': 0.3
         });
       }
 
@@ -200,7 +202,15 @@ export class MoneyTrailAnimator {
     this.animationFrames.forEach(frameId => clearTimeout(frameId));
     this.animationFrames = [];
 
-    this.cy.nodes().style('opacity', 1);
+    this.cy.nodes().style({
+      'opacity': 1,
+      'border-width': null,
+      'border-color': null,
+      'box-shadow': null,
+      'overlay-color': null,
+      'overlay-opacity': null
+    });
+
     this.cy.edges().forEach(edge => {
       edge.style({
         'opacity': 1,
