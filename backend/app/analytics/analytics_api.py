@@ -32,14 +32,12 @@ def get_global_graph():
             {"source": "ACC008", "target": "ACC009", "amount": 25000000, "transaction_count": 40, "channel": "TRANSFER"},
             {"source": "ACC009", "target": "ACC010", "amount": 20000000, "transaction_count": 35, "channel": "TRANSFER"}
         ],
-        "stats": {
-            "node_count": 92,
-            "edge_count": 48614,
-            "total_volume": 511048418702.0,
-            "shown_nodes": 10,
-            "shown_edges": 10,
-            "note": "Showing top 10 accounts by volume for performance"
-        }
+        "node_count": 92,
+        "edge_count": 48614,
+        "account_count": 92,
+        "total_volume": 511048418702.0,
+        "shown_nodes": 10,
+        "shown_edges": 10
     }
 
 
