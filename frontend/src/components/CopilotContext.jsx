@@ -72,6 +72,8 @@ export function CopilotProvider({ children }) {
     setSelectedTransaction,
     selectedCase,
     setSelectedCase,
+    currentInvestigation: selectedCase,
+    setCurrentInvestigation: setSelectedCase,
     currentPage,
     setCurrentPage,
     currentFilters,
