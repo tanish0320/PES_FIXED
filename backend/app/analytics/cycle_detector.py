@@ -30,17 +30,5 @@ def detect_global_cycles() -> dict:
     # Run the existing cycle detector on the global edge set
     result = CycleDetectionEngine.detect_cycles(raw_edges=raw_edges)
 
-    # Persist detected cycles into the cycles table (overwrite previous detection)
-    now = datetime.utcnow().isoformat()
-    for c in result.get("cycles", []):
-        store.upsert_cycle(
-            cycle_id=c["cycle_id"],
-            accounts=c["accounts"],
-            transaction_ids=c["transaction_ids"],
-            amount=c["total_amount"],
-            hop_count=c["steps"],
-            confidence=c["risk_score"],
-            detected_at=now
-        )
-
+    # Return detected cycles (no database write needed for API response)
     return result
