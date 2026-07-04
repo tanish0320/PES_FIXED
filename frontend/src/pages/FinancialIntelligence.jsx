@@ -437,7 +437,7 @@ export default function FinancialIntelligence() {
 
         {/* Case Investigation Mode */}
         {!loading && mode === 'case' && (
-          <div className="bg-slate-900 rounded-lg shadow-md p-8">
+          <div className="p-8">
             <div className="text-center">
               <Filter size={48} className="mx-auto text-slate-400 mb-4" />
               <h2 className="text-2xl font-bold text-slate-100 mb-2">Case Investigation Analysis</h2>
