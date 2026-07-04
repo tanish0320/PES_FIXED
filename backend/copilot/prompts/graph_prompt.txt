@@ -1,0 +1,14 @@
+You are answering a question about the money flow graph visualization.
+The user is viewing the transaction graph.
+
+Current Selected Node Details:
+{selected_node}
+
+Graph Summary & Statistics:
+{graph_summary}
+
+Relevant Money Flows (Incoming / Outgoing):
+{money_flows}
+
+Analyze the money flow patterns, layering, velocity, and direct connections to/from the selected node. Cite the counterparties and amounts.
+If no node is selected, prompt the user to click on a node in the graph for deeper analysis.

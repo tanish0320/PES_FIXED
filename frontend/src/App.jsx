@@ -13,6 +13,8 @@ import CrossCaseIntelligence from './pages/CrossCaseIntelligence';
 
 import ErrorBoundary from './components/ErrorBoundary';
 import Login from './components/Login';
+import CopilotPopup from './components/CopilotPopup';
+import { CopilotProvider, useCopilot } from './components/CopilotContext';
 import { getRole } from './roleStore';
 import { 
   UploadCloud, LayoutDashboard, FileText, Search, 
@@ -207,6 +209,43 @@ const NavigationSidebar = ({ handleLogout, role }) => {
 
 const AppContent = () => {
   const role = getRole();
+  const location = useLocation();
+  
+  // AppContent is wrapped in CopilotProvider, so we can use Copilot context safely
+  const copilotContext = role ? useCopilot() : null;
+
+  useEffect(() => {
+    if (!role || !copilotContext) return;
+    const path = location.pathname;
+    
+    if (path.startsWith('/graph/')) {
+      copilotContext.setCurrentPage('graph');
+      const match = path.match(/^\/graph\/([^/]+)/);
+      if (match) copilotContext.setCurrentInvestigation(match[1]);
+    } else if (path.startsWith('/report/')) {
+      copilotContext.setCurrentPage('report');
+      const match = path.match(/^\/report\/([^/]+)/);
+      if (match) copilotContext.setCurrentInvestigation(match[1]);
+    } else if (path === '/dashboard') {
+      copilotContext.setCurrentPage('dashboard');
+      copilotContext.setCurrentInvestigation(null);
+    } else if (path === '/transactions') {
+      copilotContext.setCurrentPage('transactions');
+      if (window.sentinelFilters?.caseId && window.sentinelFilters.caseId !== 'all') {
+        copilotContext.setCurrentInvestigation(window.sentinelFilters.caseId);
+      } else {
+        copilotContext.setCurrentInvestigation(null);
+      }
+    } else if (path === '/investigations') {
+      copilotContext.setCurrentPage('investigations');
+      copilotContext.setCurrentInvestigation(null);
+    } else if (path === '/upload') {
+      copilotContext.setCurrentPage('upload');
+      copilotContext.setCurrentInvestigation(null);
+    } else if (path === '/cross-case-intelligence') {
+      copilotContext.setCurrentPage('cross-case-intelligence');
+    }
+  }, [location.pathname, role]);
 
   if (!role) {
     return <Login />;
@@ -234,6 +273,9 @@ const AppContent = () => {
           <Route path="/cross-case-intelligence" element={<ErrorBoundary><CrossCaseIntelligence /></ErrorBoundary>} />
         </Routes>
       </main>
+
+      {/* AI Investigation Copilot Persistent Popup */}
+      <CopilotPopup />
     </div>
   );
 };
@@ -241,7 +283,9 @@ const AppContent = () => {
 const App = () => {
   return (
     <Router>
-      <AppContent />
+      <CopilotProvider>
+        <AppContent />
+      </CopilotProvider>
     </Router>
   );
 };

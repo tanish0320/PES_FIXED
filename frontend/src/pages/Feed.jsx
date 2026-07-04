@@ -3,6 +3,7 @@ import { useDataStore } from '../hooks/useDataStore';
 import RiskBadge from '../components/RiskBadge';
 import InvestigationSidebar from '../components/InvestigationSidebar';
 import { getRole } from '../roleStore';
+import { useCopilot } from '../components/CopilotContext';
 import { Search, Filter, Calendar, CreditCard, ShieldAlert, ArrowRight, ArrowLeftRight } from 'lucide-react';
 
 export default function Feed() {
@@ -17,6 +18,20 @@ export default function Feed() {
   
   const [sidebarState, setSidebarState] = useState({ isOpen: false, tx: null, case: null, caseDetails: null, actions: [] });
   const role = getRole();
+
+  const { setFilters } = useCopilot();
+
+  useEffect(() => {
+    setFilters({
+      caseId: selectedCaseId,
+      channel: channelFilter,
+      risk: riskFilter,
+      query: searchQuery
+    });
+    return () => {
+      setFilters({});
+    };
+  }, [selectedCaseId, channelFilter, riskFilter, searchQuery, setFilters]);
 
   // Load transactions based on selected case dropdown
   useEffect(() => {

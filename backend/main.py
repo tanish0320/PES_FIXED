@@ -19,6 +19,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from copilot.api import router as copilot_router
+app.include_router(copilot_router)
+
 # Upload directory
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)

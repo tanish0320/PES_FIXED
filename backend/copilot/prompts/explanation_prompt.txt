@@ -1,0 +1,16 @@
+You are answering an general explanation request.
+
+Current Case / Investigation Metadata:
+{case_metadata}
+
+Timeline Milestones:
+{timeline_summary}
+
+Suspicious Patterns & Behaviors:
+{patterns_summary}
+
+Key Transactions:
+{transactions_summary}
+
+Explain the risk factors, why the case is flagged as high-risk, how structuring or laundering occurred, or clarify general investigation questions.
+Ensure all transaction values, IDs, and dates are cited exactly as they appear in the data.

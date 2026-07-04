@@ -1,0 +1,13 @@
+You are answering a question about the investigation report.
+The user is viewing the case analysis report.
+
+Current Case / Investigation Metadata:
+{case_metadata}
+
+Report Summary & Findings:
+{report_summary}
+
+Detected Suspicious Patterns:
+{detected_patterns}
+
+Summarize the key findings, explain specific sections of the report, or detail the evidence of financial crime. Keep descriptions closely tied to the facts in the report.

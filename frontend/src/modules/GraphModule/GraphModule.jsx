@@ -19,11 +19,30 @@ import {
   EntityIntelligencePanel 
 } from '../../components/InvestigationDrawers';
 import RiskExplanationDrawer from '../../components/RiskExplanationDrawer';
+import { useCopilot } from '../../components/CopilotContext';
 
 const GraphModule = ({ caseDetails }) => {
   const navigate = useNavigate();
   const [selectedNode, setSelectedNode] = useState(null);
   const [showTimeline, setShowTimeline] = useState(false);
+
+  const { setSelectedGraphNode, setCurrentReport } = useCopilot();
+
+  useEffect(() => {
+    // Write node selection to CopilotContext state
+    const nodeId = selectedNode ? (selectedNode.id || selectedNode.account_id) : null;
+    setSelectedGraphNode(nodeId);
+  }, [selectedNode, setSelectedGraphNode]);
+
+  useEffect(() => {
+    if (caseDetails?.report) {
+      setCurrentReport(caseDetails.report);
+    }
+    return () => {
+      setSelectedGraphNode(null);
+      setCurrentReport(null);
+    };
+  }, [caseDetails, setSelectedGraphNode, setCurrentReport]);
   const [logs, setLogs] = useState([]);
   const canvasRef = useRef(null);
   const role = getRole();
