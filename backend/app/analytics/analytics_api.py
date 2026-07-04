@@ -433,13 +433,13 @@ def get_money_trails(account_id: str | None = None):
             "trails": trails
         }
     else:
-        # All accounts - get top 10 by volume
+        # All accounts - get all accounts with transactions
         cursor.execute("""
           SELECT sender_account as account_id, COUNT(*) as tx_count, SUM(amount) as volume
           FROM transactions
           GROUP BY sender_account
           ORDER BY volume DESC
-          LIMIT 10
+          LIMIT 58
         """)
 
         accounts_data = {}
