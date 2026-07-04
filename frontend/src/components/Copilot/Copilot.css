@@ -680,3 +680,25 @@
   background: #b91c1c;
   box-shadow: 0 0 8px rgba(220, 38, 38, 0.25);
 }
+
+/* Executive Presentation Mode Styles */
+.sentinel-presentation-mode .sentinel-sidebar,
+.sentinel-presentation-mode header.bg-slate-900,
+.sentinel-presentation-mode .sentinel-navbar,
+.sentinel-presentation-mode .flex-shrink-0 {
+  display: none !important;
+}
+
+.sentinel-presentation-mode main {
+  padding: 0 !important;
+  margin: 0 !important;
+  max-width: 100% !important;
+  width: 100vw !important;
+  height: 100vh !important;
+}
+
+.sentinel-presentation-mode .sentinel-copilot-window {
+  width: 480px;
+  height: 720px;
+  bottom: 84px;
+}

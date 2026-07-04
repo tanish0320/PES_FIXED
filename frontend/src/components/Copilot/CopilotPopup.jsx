@@ -8,6 +8,7 @@ import TypingIndicator from './TypingIndicator';
 import { routeAndExecute } from '../../copilot/intentRouter';
 import { ReasoningEngine } from '../../copilot/reasoning/ReasoningEngine';
 import { InvestigationMonitor } from '../../copilot/monitor/InvestigationMonitor';
+import { ReplayEngine } from '../../copilot/replay/ReplayEngine';
 import { Sparkles, MessageSquare, AlertCircle, Play } from 'lucide-react';
 import './Copilot.css';
 
@@ -572,72 +573,47 @@ export default function CopilotPopup() {
       return;
     }
 
+    const copilotContext = {
+      isOpen, setIsOpen, messages, setMessages, loading, setLoading,
+      streaming, setStreaming, selectedNode, selectedTransaction,
+      selectedCase, setSelectedCase, currentPage, currentFilters, toolHandlers,
+      currentTimeline, graphState, dashboardStats
+    };
+
+    const storySteps = ReplayEngine.compileStory(copilotContext);
+    if (storySteps.length === 0) {
+      alert("No data available to compile replay storyboard.");
+      return;
+    }
+
     setLoading(true);
     setStreaming(true);
-    setMessages(prev => [...prev, { sender: 'user', text: "Narrate this investigation" }]);
+    setMessages(prev => [...prev, { sender: 'user', text: "Start Autopilot Replay" }]);
 
-    const steps = [
-      {
-        msg: "🕵️ **Autonomous Forensic Narration Initiated**\n\nStarting case walkthrough for Case **" + selectedCase + "**. Reconstructing transaction topology...",
-        action: () => {
-          if (toolHandlers.navigate) toolHandlers.navigate(`/graph/${selectedCase}`);
-        }
-      },
-      {
-        msg: "🔍 **Money Source Identified**\n\nPrimary root source funding is originating from **Account ACC-1001**.",
-        action: () => {
-          if (toolHandlers.highlightNode) toolHandlers.highlightNode("ACC-1001");
-          if (toolHandlers.zoomToNode) toolHandlers.zoomToNode("ACC-1001");
-        }
-      },
-      {
-        msg: "⚡ **Conduit Fan-Out Pattern Detected**\n\nFunds from ACC-1001 are immediately dispersed downstream to multiple counterparties.",
-        action: () => {
-          if (toolHandlers.expandNetwork) toolHandlers.expandNetwork("ACC-1001");
-        }
-      },
-      {
-        msg: "🚨 **Circular Money Flow Loop Detected**\n\nWe detected a round-tripping cycle returning back to **ACC-1001**.",
-        action: () => {
-          if (toolHandlers.highlightPattern) toolHandlers.highlightPattern("Circular");
-        }
-      },
-      {
-        msg: "💥 **Primary Suspicious Transfer Selected**\n\nTransaction **TX-102** is flagged as high-risk due to sub-50,000 RBI threshold structuring.",
-        action: () => {
-          if (toolHandlers.selectTransaction) toolHandlers.selectTransaction("TX-102");
-        }
-      },
-      {
-        msg: "✅ **Audit Brief Compiled**\n\nNarration complete. Risk level: **Critical**. Recommended action: Request KYC documentation for bridge participants.",
-        action: () => {
-          if (toolHandlers.resetGraph) toolHandlers.resetGraph();
-        }
-      }
-    ];
+    let idx = 0;
+    
+    // Auto-enable Executive Presentation Mode class
+    const appEl = document.getElementById('root') || document.body;
+    appEl.classList.add('sentinel-presentation-mode');
 
-    let stepIdx = 0;
-    setStreamText(steps[0].msg);
-    steps[0].action();
-
-    const runStep = () => {
-      stepIdx++;
-      if (stepIdx < steps.length) {
-        setStreamText(steps[stepIdx].msg);
-        steps[stepIdx].action();
-        setTimeout(runStep, 4500);
-      } else {
+    const executeStep = () => {
+      if (idx >= storySteps.length) {
+        // Complete replay
         setMessages(prev => [
           ...prev,
           {
             sender: 'assistant',
             structured: true,
             data: {
-              answer: "Walkthrough of Case **" + selectedCase + "** complete. Visual highlights have been synchronized with the money trail graph.",
-              evidence: ["Root: ACC-1001", "Structures: sub-50k UPIs", "Loops: Circular Flow detected"],
+              title: "Investigation Scorecard",
+              answer: "The autonomous investigation replay has completed. Risk Level is **Critical**.",
               confidence: 96,
-              sources: ["Autonomous Narration Engine"],
-              suggested_actions: ["Open Report"],
+              evidence: ["Root source ACC-1001", "Structuring UPIs flagged"],
+              recommendations: [
+                "Request KYC records for bridge conduits.",
+                "Freeze round-trip loop participants immediately."
+              ],
+              suggested_actions: ["Print Police FIR", "Print Bank Summary"],
               follow_up_questions: ["Why is this suspicious?", "Show recommendations"]
             }
           }
@@ -645,10 +621,51 @@ export default function CopilotPopup() {
         setLoading(false);
         setStreaming(false);
         setStreamText('');
+        
+        // Remove presentation mode class
+        appEl.classList.remove('sentinel-presentation-mode');
+        return;
       }
+
+      const step = storySteps[idx];
+      setStreamText(`🎬 **Replay Step: ${step.title}** (${step.timestamp})\n\n${step.copilotNarration}`);
+
+      // Run Graph actions
+      if (step.graphActions) {
+        step.graphActions.forEach(act => {
+          if (act.type === "ZOOM" && toolHandlers.zoomToNode) toolHandlers.zoomToNode(act.nodeId);
+          if (act.type === "HIGHLIGHT" && toolHandlers.highlightNode) toolHandlers.highlightNode(act.nodeId);
+          if (act.type === "HIGHLIGHT_PATTERN" && toolHandlers.highlightPattern) {
+            toolHandlers.highlightPattern(act.pattern);
+          }
+          if (act.type === "SELECT_TRANSACTION" && toolHandlers.selectTransaction) {
+            toolHandlers.selectTransaction(act.txId);
+          }
+          if (act.type === "EXPAND" && toolHandlers.expandNetwork) toolHandlers.expandNetwork(act.nodeId);
+          if (act.type === "RESET" && toolHandlers.resetGraph) toolHandlers.resetGraph();
+          if (act.type === "CENTER" && toolHandlers.centerGraph) toolHandlers.centerGraph();
+        });
+      }
+
+      // Run Timeline actions
+      if (step.timelineActions) {
+        step.timelineActions.forEach(act => {
+          if (act.type === "FOCUS_TX") {
+            const row = document.getElementById(`tx-row-${act.txId}`);
+            if (row) {
+              row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              row.classList.add('animate-pulse', 'border-red-600', 'bg-red-950/20');
+              setTimeout(() => row.classList.remove('animate-pulse', 'border-red-600', 'bg-red-950/20'), 4000);
+            }
+          }
+        });
+      }
+
+      idx++;
+      setTimeout(executeStep, 5000);
     };
 
-    setTimeout(runStep, 4500);
+    executeStep();
   };
 
   const handleSuggestionSelect = (q) => {
