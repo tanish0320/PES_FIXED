@@ -23,6 +23,7 @@ import { useCopilot } from '../../components/CopilotContext';
 
 const GraphModule = ({ caseDetails }) => {
   const navigate = useNavigate();
+  const canvasRef = useRef(null);
   const [selectedNode, setSelectedNode] = useState(null);
   const [showTimeline, setShowTimeline] = useState(false);
 
@@ -80,7 +81,6 @@ const GraphModule = ({ caseDetails }) => {
     }
   }, [canvasRef.current, registerToolHandler, caseDetails]);
   const [logs, setLogs] = useState([]);
-  const canvasRef = useRef(null);
   const role = getRole();
 
   // Replay states
