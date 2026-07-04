@@ -171,7 +171,7 @@ export default function FinancialIntelligence() {
 
         {/* Error Banner */}
         {error && (
-          <div className="mb-6 p-4 bg-red-950 border border-red-200 rounded-lg flex items-start gap-3">
+          <div className="mb-6 p-4 bg-red-950 border border-red-800 rounded-lg flex items-start gap-3">
             <AlertCircle className="text-red-500 mt-0.5 flex-shrink-0" size={20} />
             <div className="text-red-700">{error}</div>
           </div>
@@ -251,10 +251,10 @@ export default function FinancialIntelligence() {
                         onClick={() => setSelectedCycle(cycle)}
                         className={`p-4 border-l-4 rounded cursor-pointer transition-all hover:shadow-md ${
                           cycle.risk_score >= 70
-                            ? 'border-red-500 bg-red-950 hover:bg-red-100'
+                            ? 'border-red-500 bg-red-950 hover:bg-red-900'
                             : cycle.risk_score >= 50
-                            ? 'border-amber-500 bg-amber-950 hover:bg-amber-100'
-                            : 'border-blue-500 bg-blue-950 hover:bg-blue-100'
+                            ? 'border-amber-500 bg-amber-950 hover:bg-amber-900'
+                            : 'border-blue-500 bg-blue-950 hover:bg-blue-900'
                         }`}
                       >
                         <div className="flex justify-between items-start mb-2">
@@ -392,7 +392,7 @@ export default function FinancialIntelligence() {
                       placeholder="Search account ID, UPI ID, merchant, IFSC, etc."
                       value={searchValue}
                       onChange={(e) => setSearchValue(e.target.value)}
-                      className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <button
                       type="submit"
@@ -444,7 +444,7 @@ export default function FinancialIntelligence() {
               <p className="text-slate-400 mb-6">
                 Select a case from the Investigations tab to analyze case-specific financial patterns and insights.
               </p>
-              <div className="bg-blue-950 border border-blue-200 rounded-lg p-6 mb-6">
+              <div className="bg-blue-950 border border-blue-800 rounded-lg p-6 mb-6">
                 <p className="text-slate-300 mb-4">
                   <strong>Case Investigation Mode Features:</strong>
                 </p>
@@ -465,7 +465,7 @@ export default function FinancialIntelligence() {
                 </a>
                 <button
                   onClick={() => handleModeChange('global')}
-                  className="inline-block px-6 py-2 bg-slate-200 text-slate-300 rounded-lg hover:bg-slate-300 font-medium"
+                  className="inline-block px-6 py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 font-medium"
                 >
                   Back to Global Dataset
                 </button>
@@ -569,12 +569,12 @@ export default function FinancialIntelligence() {
                 </div>
 
                 {/* FIFO Explanation */}
-                <div className="mb-6 p-4 bg-blue-950 rounded-lg border border-blue-200">
+                <div className="mb-6 p-4 bg-blue-950 rounded-lg border border-blue-800">
                   <h3 className="font-bold text-slate-100 mb-2">FIFO Allocation Method</h3>
                   <p className="text-slate-300 text-sm mb-3">
                     This account received <strong>{formatCurrency(selectedTrail.total_inflow)}</strong> across multiple transactions. Using FIFO (First-In-First-Out) principle, the oldest money received is allocated first when this account sends money out.
                   </p>
-                  <div className="bg-slate-900 p-3 rounded border border-blue-200">
+                  <div className="bg-slate-900 p-3 rounded border border-blue-800">
                     <p className="text-xs text-slate-400">
                       <strong>Net Position:</strong> {selectedTrail.net_flow >= 0 ? 'Money Receiver' : 'Money Sender'} -
                       {selectedTrail.net_flow >= 0 ? 'Received' : 'Sent'} <strong>{formatCurrency(Math.abs(selectedTrail.net_flow))}</strong> more than {selectedTrail.net_flow >= 0 ? 'sent' : 'received'}
