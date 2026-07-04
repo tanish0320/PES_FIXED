@@ -68,6 +68,8 @@ export function CopilotProvider({ children }) {
     setStreaming,
     selectedNode,
     setSelectedNode,
+    selectedGraphNode: selectedNode,
+    setSelectedGraphNode: setSelectedNode,
     selectedTransaction,
     setSelectedTransaction,
     selectedCase,
