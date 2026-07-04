@@ -74,12 +74,20 @@ class CopilotChatService:
         # 7. LLM Invocation & Token Streaming
         full_raw_response = ""
         
-        # We stream the raw response to the frontend token-by-token
-        # However, to maintain the JSON contract, we yield a token chunk event
-        for token in self.llm.generate_stream(user_prompt, system_prompt):
-            full_raw_response += token
-            # Yield token wrapped in JSON
-            yield json.dumps({"type": "token", "delta": token}) + "\n"
+        try:
+            # We stream the raw response to the frontend token-by-token
+            # However, to maintain the JSON contract, we yield a token chunk event
+            for token in self.llm.generate_stream(user_prompt, system_prompt):
+                full_raw_response += token
+                # Yield token wrapped in JSON
+                yield json.dumps({"type": "token", "delta": token}) + "\n"
+        except Exception as e:
+            # Yield error format on failure and stop
+            yield json.dumps({"type": "error", "message": "AI Copilot Offline"}) + "\n"
+            return
+
+        # Yield complete type at the end of token generation
+        yield json.dumps({"type": "complete"}) + "\n"
 
         # 8. Formatting and Post-Processing (JSON Validation & Citations check)
         formatted_json = ResponseFormatter.format_response(full_raw_response, intent)
