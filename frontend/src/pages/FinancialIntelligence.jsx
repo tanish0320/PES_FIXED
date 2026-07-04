@@ -108,7 +108,6 @@ export default function FinancialIntelligence() {
     setSearchResults(null);
 
     if (tab === 'cycles' && !cycles) loadCycles();
-    if (tab === 'graph' && !graph) loadGraph();
     if (tab === 'hubs' && !hubs) loadHubs();
     if (tab === 'trails' && !trails) loadTrails();
   };
@@ -176,7 +175,6 @@ export default function FinancialIntelligence() {
             {[
               { id: 'analytics', label: 'Global Analytics', icon: TrendingUp },
               { id: 'cycles', label: 'Circular Money Traversal', icon: GitBranch },
-              { id: 'graph', label: 'Global Graph', icon: TrendingUp },
               { id: 'trails', label: 'Money Trails', icon: Search },
               { id: 'hubs', label: 'Top Money Hubs', icon: Zap },
               { id: 'search', label: 'Cross-Statement Search', icon: Search }
@@ -268,42 +266,6 @@ export default function FinancialIntelligence() {
                         <p className="text-xs text-slate-500 mt-2">Click to view cycle graph</p>
                       </div>
                     ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Global Graph */}
-            {activeTab === 'graph' && (
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-2xl font-bold text-slate-900 mb-4">Global Financial Graph</h2>
-                {!graph ? (
-                  <button
-                    onClick={loadGraph}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    Load Graph
-                  </button>
-                ) : (
-                  <div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                      <div className="bg-blue-50 p-4 rounded-lg">
-                        <div className="text-3xl font-bold text-blue-600">{graph.node_count}</div>
-                        <div className="text-sm text-slate-600">Total Nodes</div>
-                      </div>
-                      <div className="bg-green-50 p-4 rounded-lg">
-                        <div className="text-3xl font-bold text-green-600">{graph.edge_count}</div>
-                        <div className="text-sm text-slate-600">Transactions</div>
-                      </div>
-                      <div className="bg-purple-50 p-4 rounded-lg">
-                        <div className="text-3xl font-bold text-purple-600">{graph.account_count}</div>
-                        <div className="text-sm text-slate-600">Accounts</div>
-                      </div>
-                    </div>
-                    <div className="text-slate-600 text-sm">
-                      <p className="mb-4">Graph contains {graph.node_count} connected entities across {graph.edge_count} transactions.</p>
-                      <p className="text-xs text-slate-500">Note: Full graph visualization requires frontend integration. Refer to global-graph API for node/edge data.</p>
-                    </div>
                   </div>
                 )}
               </div>
