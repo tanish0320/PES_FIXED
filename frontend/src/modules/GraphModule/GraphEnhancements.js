@@ -148,10 +148,11 @@ export class MoneyTrailAnimator {
 
     // Fade all nodes except those in the trail
     const trailNodeIds = new Set(accounts.map(String));
+    const highlightedNodes = [];
 
     this.cy.nodes().forEach(node => {
       if (!trailNodeIds.has(String(node.id()))) {
-        node.style('opacity', 0.2);
+        node.style('opacity', 0.15);
       } else {
         node.style('opacity', 1);
       }
@@ -179,15 +180,31 @@ export class MoneyTrailAnimator {
           'z-index': 1000
         });
 
-        // Highlight the destination node with glow effect
+        // Highlight the destination node
         const targetNode = this.cy.getElementById(target);
+        const originalBgColor = targetNode.style('background-color');
+        const originalBorderWidth = targetNode.style('border-width');
+        const originalBorderColor = targetNode.style('border-color');
+
+        highlightedNodes.push({ node: targetNode, originalBgColor, originalBorderWidth, originalBorderColor });
+
+        // Make node glow: bright cyan background + thick bright border
         targetNode.style({
+          'background-color': '#00ff99',
           'border-width': 4,
-          'border-color': '#4ecdc4',
-          'box-shadow': '0 0 20px #4ecdc4',
-          'overlay-color': '#4ecdc4',
-          'overlay-opacity': 0.3
+          'border-color': '#00ffcc',
+          'opacity': 1,
+          'z-index': 999
         });
+
+        // After animation, reset the node
+        setTimeout(() => {
+          targetNode.style({
+            'background-color': originalBgColor,
+            'border-width': originalBorderWidth,
+            'border-color': originalBorderColor
+          });
+        }, 600);
       }
 
       edgeIndex++;
