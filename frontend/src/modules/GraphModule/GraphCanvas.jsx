@@ -809,14 +809,7 @@ const GraphCanvas = forwardRef(({
       console.log('[Money Trail] Final path:', path);
 
       if (path.length > 1) {
-        // Clear previous highlights
-        cy.elements().removeClass('highlighted-search dimmed-search');
-
-        // Call animateMoneyTrail via the handle
         console.log('[Money Trail] Animating path with', path.length, 'nodes');
-
-        // Manually run the animation code here
-        cy.elements().removeClass('money-trail-active money-trail-glow');
 
         // Fade all nodes except those in the trail
         const trailNodeIds = new Set(path.map(String));
@@ -826,6 +819,24 @@ const GraphCanvas = forwardRef(({
             node.style('opacity', 0.15);
           } else {
             node.style('opacity', 1);
+          }
+        });
+
+        // Fade all edges not in trail
+        cy.edges().forEach(edge => {
+          const source = String(edge.source().id());
+          const target = String(edge.target().id());
+          let inPath = false;
+
+          for (let i = 0; i < path.length - 1; i++) {
+            if (String(path[i]) === source && String(path[i + 1]) === target) {
+              inPath = true;
+              break;
+            }
+          }
+
+          if (!inPath) {
+            edge.style('opacity', 0.15);
           }
         });
 
@@ -851,17 +862,39 @@ const GraphCanvas = forwardRef(({
 
           if (matchingEdges.length > 0) {
             const edge = matchingEdges[0];
-            edge.addClass('money-trail-active');
+            edge.style({
+              'line-color': '#4ecdc4',
+              'target-arrow-color': '#4ecdc4',
+              'width': 5,
+              'opacity': 1
+            });
 
             // Highlight the destination node
             const targetNode = cy.getElementById(target);
             if (targetNode.length > 0) {
-              console.log('[Money Trail] Adding glow to node:', target);
-              targetNode.addClass('money-trail-glow');
+              console.log('[Money Trail] Glowing node:', target);
+
+              // Store original color
+              const origBg = targetNode.style('background-color');
+              const origBorder = targetNode.style('border-color');
+
+              targetNode.style({
+                'background-color': '#00ff99',
+                'border-color': '#00ffcc',
+                'border-width': 4,
+                'width': 80,
+                'height': 80
+              });
 
               // After animation, reset the node
               setTimeout(() => {
-                targetNode.removeClass('money-trail-glow');
+                targetNode.style({
+                  'background-color': origBg,
+                  'border-color': origBorder,
+                  'border-width': 2,
+                  'width': 65,
+                  'height': 65
+                });
               }, 600);
             }
           }
