@@ -26,6 +26,7 @@ const GraphModule = ({ caseDetails }) => {
   const canvasRef = useRef(null);
   const [selectedNode, setSelectedNode] = useState(null);
   const [showTimeline, setShowTimeline] = useState(false);
+  const [globalSearch, setGlobalSearch] = useState('');
 
   const { 
     setSelectedGraphNode, 
@@ -92,7 +93,6 @@ const GraphModule = ({ caseDetails }) => {
   const [selectedTx, setSelectedTx] = useState(null);
   const [selectedEntity, setSelectedEntity] = useState(null);
   const [entityNotes, setEntityNotes] = useState({});
-  const [globalSearch, setGlobalSearch] = useState('');
 
   useEffect(() => {
     setSelectedTransaction(selectedTx ? (selectedTx.id || selectedTx.transaction_id) : null);
