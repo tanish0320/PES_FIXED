@@ -205,27 +205,5 @@ export const graphStyles = [
       'opacity': 1,
       'z-index': 200
     }
-  },
-  {
-    selector: 'edge.money-trail-active',
-    style: {
-      'line-color': '#4ecdc4',
-      'target-arrow-color': '#4ecdc4',
-      'width': 5,
-      'opacity': 1,
-      'z-index': 999
-    }
-  },
-  {
-    selector: 'node.money-trail-glow',
-    style: {
-      'background-color': '#00ff99',
-      'border-color': '#00ffcc',
-      'border-width': 4,
-      'width': 80,
-      'height': 80,
-      'opacity': 1,
-      'z-index': 999
-    }
   }
 ];

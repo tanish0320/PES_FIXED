@@ -28,20 +28,9 @@ const GraphModule = ({ caseDetails }) => {
   const [showTimeline, setShowTimeline] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
 
-  // Handle node selection with automatic money trail animation
+  // Handle node selection
   const handleNodeClick = useCallback((node) => {
-    console.log('[GraphModule] Node clicked:', node);
     setSelectedNode(node);
-    // Auto-animate money trail from this node
-    if (canvasRef.current && node?.id) {
-      console.log('[GraphModule] Canvas ref available, triggering money trail');
-      setTimeout(() => {
-        console.log('[GraphModule] Calling autoTraceMoneyPath with:', node.id);
-        canvasRef.current.autoTraceMoneyPath?.(node.id);
-      }, 100);
-    } else {
-      console.log('[GraphModule] Canvas ref not available or no node id:', { ref: !!canvasRef.current, id: node?.id });
-    }
   }, []);
 
   const { 
