@@ -28,6 +28,17 @@ const GraphModule = ({ caseDetails }) => {
   const [showTimeline, setShowTimeline] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
 
+  // Handle node selection with automatic money trail animation
+  const handleNodeClick = useCallback((node) => {
+    setSelectedNode(node);
+    // Auto-animate money trail from this node
+    if (canvasRef.current && node?.id) {
+      setTimeout(() => {
+        canvasRef.current.autoTraceMoneyPath?.(node.id);
+      }, 100);
+    }
+  }, []);
+
   const { 
     setSelectedGraphNode, 
     setSelectedCase,
@@ -652,11 +663,11 @@ const GraphModule = ({ caseDetails }) => {
               <span className="text-[10px] text-slate-600 mt-1">Failed to initialize money flow visualization.</span>
             </div>
           )}
-          <GraphCanvas 
-            ref={canvasRef} 
-            nodes={nodes} 
-            edges={edges} 
-            onNodeClick={setSelectedNode} 
+          <GraphCanvas
+            ref={canvasRef}
+            nodes={nodes}
+            edges={edges}
+            onNodeClick={handleNodeClick}
             replayMode={replayActive}
             primaryAccountId={primaryAccountId}
           />

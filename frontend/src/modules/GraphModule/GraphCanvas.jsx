@@ -783,6 +783,46 @@ const GraphCanvas = forwardRef(({
           'z-index': 'auto'
         });
       });
+    },
+
+    // Auto-trace money path from selected node
+    autoTraceMoneyPath: (nodeId) => {
+      const cy = cyRef.current;
+      if (!cy) return;
+
+      const startNode = cy.getElementById(nodeId);
+      if (startNode.length === 0) return;
+
+      // ponytail: DFS to find first path - simple trace for demo
+      const visited = new Set();
+      const path = [];
+
+      const dfs = (node) => {
+        const id = String(node.id());
+        if (visited.has(id)) return false;
+        visited.add(id);
+        path.push(id);
+
+        // Find outgoing edges
+        const outgoing = node.connectedEdges().filter(e => e.source().id() === id);
+        if (outgoing.length === 0) return true; // Found a leaf - end of trail
+
+        for (let edge of outgoing) {
+          const target = edge.target();
+          if (dfs(target)) return true;
+        }
+
+        path.pop();
+        return false;
+      };
+
+      if (dfs(startNode) && path.length > 1) {
+        // Call the animation with the path
+        cyRef.current.elements().removeClass('highlighted-search').removeClass('dimmed-search');
+
+        // Animation will run
+        this.animateMoneyTrail(path, path.map(() => 0), 0);
+      }
     }
   }));
 
