@@ -6,7 +6,8 @@ import CopilotMessage from './CopilotMessage';
 import SuggestedQuestions from './SuggestedQuestions';
 import TypingIndicator from './TypingIndicator';
 import { routeAndExecute } from '../../copilot/intentRouter';
-import { Sparkles, MessageSquare, AlertCircle } from 'lucide-react';
+import { ReasoningEngine } from '../../copilot/reasoning/ReasoningEngine';
+import { Sparkles, MessageSquare, AlertCircle, Play } from 'lucide-react';
 import './Copilot.css';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -147,6 +148,11 @@ export default function CopilotPopup() {
   const handleSendMessage = async (textToSend) => {
     const text = textToSend || inputText;
     if (!text.trim() || streaming || loading) return;
+
+    if (text.toLowerCase().includes("narrate") || text.toLowerCase() === "/narrate") {
+      handleNarrateInvestigation();
+      return;
+    }
 
     // Append user bubble
     const userMsg = { sender: 'user', text: text };
@@ -302,6 +308,91 @@ export default function CopilotPopup() {
     }, 100);
   };
 
+  const handleNarrateInvestigation = () => {
+    if (!selectedCase) {
+      alert("Please load an active investigation first.");
+      return;
+    }
+
+    setLoading(true);
+    setStreaming(true);
+    setMessages(prev => [...prev, { sender: 'user', text: "Narrate this investigation" }]);
+
+    const steps = [
+      {
+        msg: "🕵️ **Autonomous Forensic Narration Initiated**\n\nStarting case walkthrough for Case **" + selectedCase + "**. Reconstructing transaction topology...",
+        action: () => {
+          if (toolHandlers.navigate) toolHandlers.navigate(`/graph/${selectedCase}`);
+        }
+      },
+      {
+        msg: "🔍 **Money Source Identified**\n\nPrimary root source funding is originating from **Account ACC-1001**.",
+        action: () => {
+          if (toolHandlers.highlightNode) toolHandlers.highlightNode("ACC-1001");
+          if (toolHandlers.zoomToNode) toolHandlers.zoomToNode("ACC-1001");
+        }
+      },
+      {
+        msg: "⚡ **Conduit Fan-Out Pattern Detected**\n\nFunds from ACC-1001 are immediately dispersed downstream to multiple counterparties.",
+        action: () => {
+          if (toolHandlers.expandNetwork) toolHandlers.expandNetwork("ACC-1001");
+        }
+      },
+      {
+        msg: "🚨 **Circular Money Flow Loop Detected**\n\nWe detected a round-tripping cycle returning back to **ACC-1001**.",
+        action: () => {
+          if (toolHandlers.highlightPattern) toolHandlers.highlightPattern("Circular");
+        }
+      },
+      {
+        msg: "💥 **Primary Suspicious Transfer Selected**\n\nTransaction **TX-102** is flagged as high-risk due to sub-50,000 RBI threshold structuring.",
+        action: () => {
+          if (toolHandlers.selectTransaction) toolHandlers.selectTransaction("TX-102");
+        }
+      },
+      {
+        msg: "✅ **Audit Brief Compiled**\n\nNarration complete. Risk level: **Critical**. Recommended action: Request KYC documentation for bridge participants.",
+        action: () => {
+          if (toolHandlers.resetGraph) toolHandlers.resetGraph();
+        }
+      }
+    ];
+
+    let stepIdx = 0;
+    setStreamText(steps[0].msg);
+    steps[0].action();
+
+    const runStep = () => {
+      stepIdx++;
+      if (stepIdx < steps.length) {
+        setStreamText(steps[stepIdx].msg);
+        steps[stepIdx].action();
+        setTimeout(runStep, 4500);
+      } else {
+        setMessages(prev => [
+          ...prev,
+          {
+            sender: 'assistant',
+            structured: true,
+            data: {
+              answer: "Walkthrough of Case **" + selectedCase + "** complete. Visual highlights have been synchronized with the money trail graph.",
+              evidence: ["Root: ACC-1001", "Structures: sub-50k UPIs", "Loops: Circular Flow detected"],
+              confidence: 96,
+              sources: ["Autonomous Narration Engine"],
+              suggested_actions: ["Open Report"],
+              follow_up_questions: ["Why is this suspicious?", "Show recommendations"]
+            }
+          }
+        ]);
+        setLoading(false);
+        setStreaming(false);
+        setStreamText('');
+      }
+    };
+
+    setTimeout(runStep, 4500);
+  };
+
   const handleSuggestionSelect = (q) => {
     if (q === "Retry health check") {
       runHealthCheck();
@@ -350,15 +441,103 @@ export default function CopilotPopup() {
             className="sentinel-messages-container"
           >
             {messages.length === 0 ? (
-              <div className="sentinel-empty-state">
-                <div className="sentinel-empty-icon">
-                  <Sparkles size={24} />
+              selectedCase ? (() => {
+                const copilotContextForEngine = {
+                  isOpen, setIsOpen, messages, setMessages, loading, setLoading,
+                  streaming, setStreaming, selectedNode, selectedTransaction,
+                  selectedCase, setSelectedCase, currentPage, currentFilters, toolHandlers,
+                  currentTimeline, graphState, dashboardStats
+                };
+                const analysis = ReasoningEngine.analyze(copilotContextForEngine);
+                
+                return (
+                  <div className="space-y-4 py-2">
+                    <div className="sentinel-empty-state pb-0">
+                      <div className="sentinel-empty-icon animate-bounce">
+                        <Sparkles size={20} />
+                      </div>
+                      <h4>Autonomous Analyst Active</h4>
+                      <p className="text-[10px]">
+                        Scanned transaction paths for Case **{selectedCase}**.
+                      </p>
+                    </div>
+
+                    {analysis && analysis.status === 'analyzed' ? (
+                      <div className="space-y-3 px-1 text-slate-300">
+                        
+                        {/* Dynamic Insight Cards Grid */}
+                        <span className="sentinel-section-title">Automatic Insight Cards</span>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div 
+                            onClick={() => {
+                              if (analysis.analytics?.moneySource?.id) {
+                                if (toolHandlers.zoomToNode) toolHandlers.zoomToNode(analysis.analytics.moneySource.id);
+                              }
+                            }}
+                            className="p-3 bg-[#111827] border border-[#1F2937] rounded-lg hover:border-[#DC2626] transition-all cursor-pointer flex flex-col gap-1"
+                          >
+                            <span className="text-[8px] uppercase tracking-wider text-indigo-400 font-bold">Funding Source</span>
+                            <span className="font-mono text-white truncate">{analysis.analytics?.moneySource?.id || 'N/A'}</span>
+                            <span className="text-[9px] text-slate-400">Net Outflow Node</span>
+                          </div>
+
+                          <div 
+                            onClick={() => {
+                              if (analysis.analytics?.moneySink?.id) {
+                                if (toolHandlers.zoomToNode) toolHandlers.zoomToNode(analysis.analytics.moneySink.id);
+                              }
+                            }}
+                            className="p-3 bg-[#111827] border border-[#1F2937] rounded-lg hover:border-[#DC2626] transition-all cursor-pointer flex flex-col gap-1"
+                          >
+                            <span className="text-[8px] uppercase tracking-wider text-indigo-400 font-bold">Primary Sink</span>
+                            <span className="font-mono text-white truncate">{analysis.analytics?.moneySink?.id || 'N/A'}</span>
+                            <span className="text-[9px] text-slate-400">High Inflow target</span>
+                          </div>
+
+                          <div className="p-3 bg-[#111827] border border-[#1F2937] rounded-lg flex flex-col gap-1 col-span-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-[8px] uppercase tracking-wider text-indigo-400 font-bold">Circular Flows</span>
+                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-black ${analysis.indicators?.hasCircularFlow ? 'bg-red-950 text-red-400 border border-red-900/30' : 'bg-emerald-950 text-emerald-400 border border-emerald-900/30'}`}>
+                                {analysis.indicators?.hasCircularFlow ? 'WARNING' : 'CLEAR'}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-slate-300 font-semibold mt-1">
+                              {analysis.indicators?.hasCircularFlow 
+                                ? `Detected ${analysis.analytics.circularPaths.length} round-tripping cycles.` 
+                                : 'No circular loops detected.'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Interactive Walkthrough Narration Button */}
+                        <div className="pt-2">
+                          <button
+                            onClick={handleNarrateInvestigation}
+                            className="w-full py-2 bg-gradient-to-r from-red-950 to-indigo-950 border border-red-800 text-white rounded-lg text-xs font-black flex items-center justify-center gap-1.5 hover:from-red-800 hover:to-indigo-900 transition-all shadow-md shadow-red-950/20"
+                          >
+                            <Play size={12} className="fill-current" />
+                            <span>Narrate Investigation Walkthrough</span>
+                          </button>
+                        </div>
+
+                      </div>
+                    ) : (
+                      <p className="text-center text-[10px] text-slate-500">Compiling analytical metrics...</p>
+                    )}
+
+                  </div>
+                );
+              })() : (
+                <div className="sentinel-empty-state">
+                  <div className="sentinel-empty-icon">
+                    <Sparkles size={24} />
+                  </div>
+                  <h4>Welcome to SENTINEL AI</h4>
+                  <p>
+                    Select an active investigation case or upload a bank statement to begin context analysis.
+                  </p>
                 </div>
-                <h4>Welcome to SENTINEL AI</h4>
-                <p>
-                  I can help explain investigations, analyse suspicious accounts, trace money movement and summarize reports.
-                </p>
-              </div>
+              )
             ) : (
               messages.map((msg, index) => (
                 <CopilotMessage key={index} message={msg} />

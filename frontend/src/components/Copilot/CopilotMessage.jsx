@@ -44,11 +44,20 @@ export default function CopilotMessage({ message, isStreamingCursor }) {
         {message.structured && message.data ? (
           <div className="space-y-4">
             
+            {/* Structured Title Banner */}
+            {message.data.title && (
+              <div className="border-b border-slate-800 pb-2 mb-2">
+                <h4 className="text-white font-extrabold text-sm uppercase tracking-wide flex items-center gap-1.5">
+                  🛡️ {message.data.title}
+                </h4>
+              </div>
+            )}
+
             {/* Answer Paragraph */}
             <div className="space-y-1">
               <span className="sentinel-section-title">Answer</span>
               <div className="text-slate-100 font-medium">
-                <MessageRenderer text={message.data.answer} />
+                <MessageRenderer text={message.data.answer || message.data.explanation} />
                 {isStreamingCursor && <span className="sentinel-streaming-cursor"></span>}
               </div>
             </div>
@@ -68,6 +77,18 @@ export default function CopilotMessage({ message, isStreamingCursor }) {
             {/* Confidence progress */}
             {message.data.confidence !== undefined && (
               <ConfidenceBadge score={message.data.confidence} />
+            )}
+
+            {/* Recommendations block */}
+            {message.data.recommendations && message.data.recommendations.length > 0 && (
+              <div className="space-y-1.5">
+                <span className="sentinel-section-title">AI Recommendations</span>
+                <ul className="list-disc pl-4 space-y-1 mt-1 text-slate-300 text-xs font-semibold">
+                  {message.data.recommendations.map((rec, idx) => (
+                    <li key={idx} className="text-indigo-200">{rec}</li>
+                  ))}
+                </ul>
+              </div>
             )}
 
             {/* Suggested Actions */}
