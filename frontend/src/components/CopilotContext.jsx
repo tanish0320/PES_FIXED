@@ -1,30 +1,58 @@
 import React, { createContext, useContext, useState } from 'react';
 
-// Create Context
 const CopilotContext = createContext(null);
 
-// Provider Wrapper
 export function CopilotProvider({ children }) {
-  const [currentInvestigation, setCurrentInvestigation] = useState(null);
-  const [currentPage, setCurrentPage] = useState('dashboard');
-  const [selectedGraphNode, setSelectedGraphNode] = useState(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState([
+    {
+      sender: 'assistant',
+      structured: true,
+      data: {
+        answer: "Welcome to SENTINEL AI Investigation Copilot.\n\nI can help explain investigations, analyse suspicious accounts, trace money movement and summarize reports.",
+        evidence: [],
+        confidence: 100,
+        sources: ["Sentinel System Core"],
+        suggested_actions: [],
+        follow_up_questions: [
+          "Explain this investigation",
+          "Why is this suspicious?",
+          "Summarize report",
+          "Trace money flow"
+        ]
+      }
+    }
+  ]);
+  const [loading, setLoading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
+  const [selectedNode, setSelectedNode] = useState(null);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
-  const [currentReport, setCurrentReport] = useState(null);
-  const [filters, setFilters] = useState({});
+  const [selectedCase, setSelectedCase] = useState(null);
+  const [currentPage, setCurrentPage] = useState('dashboard');
+  const [currentFilters, setCurrentFilters] = useState({});
+  const [conversationId, setConversationId] = useState(null);
 
   const value = {
-    currentInvestigation,
-    setCurrentInvestigation,
-    currentPage,
-    setCurrentPage,
-    selectedGraphNode,
-    setSelectedGraphNode,
+    isOpen,
+    setIsOpen,
+    messages,
+    setMessages,
+    loading,
+    setLoading,
+    streaming,
+    setStreaming,
+    selectedNode,
+    setSelectedNode,
     selectedTransaction,
     setSelectedTransaction,
-    currentReport,
-    setCurrentReport,
-    filters,
-    setFilters
+    selectedCase,
+    setSelectedCase,
+    currentPage,
+    setCurrentPage,
+    currentFilters,
+    setCurrentFilters,
+    conversationId,
+    setConversationId
   };
 
   return (
@@ -34,7 +62,6 @@ export function CopilotProvider({ children }) {
   );
 }
 
-// Hook to consume the state
 export function useCopilot() {
   const context = useContext(CopilotContext);
   if (!context) {

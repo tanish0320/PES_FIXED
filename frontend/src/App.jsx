@@ -13,7 +13,7 @@ import CrossCaseIntelligence from './pages/CrossCaseIntelligence';
 
 import ErrorBoundary from './components/ErrorBoundary';
 import Login from './components/Login';
-import CopilotPopup from './components/CopilotPopup';
+import CopilotPopup from './components/Copilot/CopilotPopup';
 import { CopilotProvider, useCopilot } from './components/CopilotContext';
 import { getRole } from './roleStore';
 import { 
