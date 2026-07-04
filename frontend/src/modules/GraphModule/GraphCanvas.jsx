@@ -828,7 +828,7 @@ const GraphCanvas = forwardRef(({
       const layout = cy.layout(layoutConfig);
       if (replayMode) {
         layout.on('layoutstop', () => {
-          if (cy.isDestroyed()) return;
+          if (cy.destroyed && cy.destroyed()) return;
           cy.batch(() => {
             cy.elements().addClass('hidden-replay');
             const primaryNode = cy.nodes().filter(n => n.data('account_id') === primaryAccountId || n.data('node_type') === 'account');
