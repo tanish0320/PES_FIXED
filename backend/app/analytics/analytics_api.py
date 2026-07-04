@@ -338,17 +338,37 @@ def get_cycles():
             total_amount = flow_data['amount'] + reverse_flow['amount']
             total_txs = flow_data['tx_count'] + reverse_flow['tx_count']
 
-            # Risk increases with amount (fraud typically moves large sums)
-            risk_score = 50
-            if total_amount > 100_000_000:  # 1 crore
-                risk_score += 30
-            elif total_amount > 10_000_000:  # 10 lakhs
-                risk_score += 20
-            elif total_amount > 1_000_000:  # 1 lakh
-                risk_score += 10
+            # Risk calculation: base + amount + frequency + symmetry
+            risk_score = 40  # Base risk for any mutual flow
 
-            # More transactions = higher risk (pattern repeats)
-            risk_score += min(25, total_txs * 3)
+            # Amount-based risk (fraud typically moves large sums)
+            if total_amount > 100_000_000:  # 1 crore
+                risk_score += 35
+            elif total_amount > 10_000_000:  # 10 lakhs
+                risk_score += 25
+            elif total_amount > 1_000_000:  # 1 lakh
+                risk_score += 15
+            elif total_amount > 100_000:  # 1 lakh
+                risk_score += 8
+
+            # Frequency-based risk (repeated pattern = higher suspicion)
+            if total_txs >= 100:
+                risk_score += 30
+            elif total_txs >= 50:
+                risk_score += 25
+            elif total_txs >= 20:
+                risk_score += 15
+            elif total_txs >= 10:
+                risk_score += 10
+            elif total_txs >= 5:
+                risk_score += 5
+
+            # Flow balance risk (symmetric flows are more suspicious)
+            flow_ratio = min(flow_data['amount'], reverse_flow['amount']) / max(flow_data['amount'], reverse_flow['amount'])
+            if flow_ratio > 0.8:  # Nearly equal flows
+                risk_score += 20
+            elif flow_ratio > 0.6:  # Moderately balanced
+                risk_score += 10
 
             cycles.append({
                 "cycle_id": f"rt_{src[:8]}_{dst[:8]}",
