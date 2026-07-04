@@ -7,8 +7,10 @@ import {
   fetchTopMoneyHubs,
   fetchAccount,
   fetchEntity,
-  fetchHighRiskNetwork
+  fetchHighRiskNetwork,
+  fetchGlobalAnalytics
 } from '../hooks/useFinancialIntelligenceStore';
+import GlobalAnalyticsDashboard from './GlobalAnalyticsDashboard';
 
 export default function FinancialIntelligence() {
   const [mode, setMode] = useState('global'); // 'global' or 'case'
@@ -171,6 +173,7 @@ export default function FinancialIntelligence() {
         {mode === 'global' && (
           <div className="mb-6 flex gap-2 flex-wrap">
             {[
+              { id: 'analytics', label: 'Global Analytics', icon: TrendingUp },
               { id: 'cycles', label: 'Circular Money Traversal', icon: GitBranch },
               { id: 'graph', label: 'Global Graph', icon: TrendingUp },
               { id: 'trails', label: 'Money Trails', icon: Search },
@@ -207,6 +210,11 @@ export default function FinancialIntelligence() {
         {/* Tab Content */}
         {!loading && mode === 'global' && (
           <>
+            {/* Global Analytics Dashboard */}
+            {activeTab === 'analytics' && (
+              <GlobalAnalyticsDashboard />
+            )}
+
             {/* Circular Money Traversal */}
             {activeTab === 'cycles' && cycles && (
               <div className="bg-white rounded-lg shadow-md p-6">
