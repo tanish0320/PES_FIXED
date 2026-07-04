@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AlertCircle, TrendingUp, GitBranch, Search, Zap, Loader } from 'lucide-react';
+import { AlertCircle, TrendingUp, GitBranch, Search, Zap, Loader, Globe, Filter } from 'lucide-react';
 import {
   fetchGlobalGraph,
   fetchCycles,
@@ -11,6 +11,7 @@ import {
 } from '../hooks/useFinancialIntelligenceStore';
 
 export default function FinancialIntelligence() {
+  const [mode, setMode] = useState('global'); // 'global' or 'case'
   const [activeTab, setActiveTab] = useState('cycles');
   const [loading, setLoading] = useState(false);
   const [cycles, setCycles] = useState(null);
@@ -109,6 +110,12 @@ export default function FinancialIntelligence() {
     if (tab === 'trails' && !trails) loadTrails();
   };
 
+  const handleModeChange = (newMode) => {
+    setMode(newMode);
+    setError(null);
+    setSearchResults(null);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
       <div className="max-w-7xl mx-auto">
@@ -116,11 +123,40 @@ export default function FinancialIntelligence() {
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-slate-900 flex items-center gap-3 mb-2">
             <Zap className="text-amber-500" size={32} />
-            Global Financial Intelligence
+            Financial Intelligence
           </h1>
           <p className="text-slate-600">
-            Cross-statement circular money traversal, money trails, and network analysis
+            {mode === 'global'
+              ? 'Cross-statement circular money traversal, money trails, and network analysis'
+              : 'Case-specific financial analysis and investigation insights'
+            }
           </p>
+
+          {/* Mode Toggle */}
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={() => handleModeChange('global')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                mode === 'global'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+              }`}
+            >
+              <Globe size={18} />
+              Global Dataset
+            </button>
+            <button
+              onClick={() => handleModeChange('case')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                mode === 'case'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+              }`}
+            >
+              <Filter size={18} />
+              Case Investigation
+            </button>
+          </div>
         </div>
 
         {/* Error Banner */}
@@ -131,32 +167,34 @@ export default function FinancialIntelligence() {
           </div>
         )}
 
-        {/* Tab Navigation */}
-        <div className="mb-6 flex gap-2 flex-wrap">
-          {[
-            { id: 'cycles', label: 'Circular Money Traversal', icon: GitBranch },
-            { id: 'graph', label: 'Global Graph', icon: TrendingUp },
-            { id: 'trails', label: 'Money Trails', icon: Search },
-            { id: 'hubs', label: 'Top Money Hubs', icon: Zap },
-            { id: 'search', label: 'Cross-Statement Search', icon: Search }
-          ].map(tab => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => handleTabChange(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                  activeTab === tab.id
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'bg-white text-slate-700 border border-slate-200 hover:border-blue-300'
-                }`}
-              >
-                <Icon size={18} />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+        {/* Tab Navigation - Only show for global mode */}
+        {mode === 'global' && (
+          <div className="mb-6 flex gap-2 flex-wrap">
+            {[
+              { id: 'cycles', label: 'Circular Money Traversal', icon: GitBranch },
+              { id: 'graph', label: 'Global Graph', icon: TrendingUp },
+              { id: 'trails', label: 'Money Trails', icon: Search },
+              { id: 'hubs', label: 'Top Money Hubs', icon: Zap },
+              { id: 'search', label: 'Cross-Statement Search', icon: Search }
+            ].map(tab => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => handleTabChange(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                    activeTab === tab.id
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'bg-white text-slate-700 border border-slate-200 hover:border-blue-300'
+                  }`}
+                >
+                  <Icon size={18} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Loading State */}
         {loading && (
@@ -167,7 +205,7 @@ export default function FinancialIntelligence() {
         )}
 
         {/* Tab Content */}
-        {!loading && (
+        {!loading && mode === 'global' && (
           <>
             {/* Circular Money Traversal */}
             {activeTab === 'cycles' && cycles && (
@@ -369,6 +407,45 @@ export default function FinancialIntelligence() {
               </div>
             )}
           </>
+        )}
+
+        {/* Case Investigation Mode */}
+        {!loading && mode === 'case' && (
+          <div className="bg-white rounded-lg shadow-md p-8">
+            <div className="text-center">
+              <Filter size={48} className="mx-auto text-slate-400 mb-4" />
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">Case Investigation Analysis</h2>
+              <p className="text-slate-600 mb-6">
+                Select a case from the Investigations tab to analyze case-specific financial patterns and insights.
+              </p>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+                <p className="text-slate-700 mb-4">
+                  <strong>Case Investigation Mode Features:</strong>
+                </p>
+                <ul className="text-left max-w-md mx-auto space-y-2 text-slate-600">
+                  <li>✓ Transaction history for selected case</li>
+                  <li>✓ Case-specific entity relationships</li>
+                  <li>✓ Account flow analysis</li>
+                  <li>✓ Risk assessment for case</li>
+                  <li>✓ Timeline and pattern detection</li>
+                </ul>
+              </div>
+              <div className="space-x-4">
+                <a
+                  href="/investigations"
+                  className="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                >
+                  Go to Investigations
+                </a>
+                <button
+                  onClick={() => handleModeChange('global')}
+                  className="inline-block px-6 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-medium"
+                >
+                  Back to Global Dataset
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
