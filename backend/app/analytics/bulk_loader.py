@@ -13,7 +13,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 from app.engines.statement_parser import StatementParser
 from app.engines.normalization_engine import NormalizationEngine
 from app.engines.entity_extractor import EntityExtractor
-from app.analytics import sqlite_store as store
+# ponytail: lazy import sqlite_store only when ingest_file() is called
 
 SUPPORTED_EXTS = {".pdf", ".csv", ".xlsx", ".xls", ".txt"}
 
@@ -38,6 +38,8 @@ def ingest_file(file_path: str) -> dict:
 
     This is the canonical single ingestion path used by both bulk_loader and the upload hook.
     """
+    from app.analytics import sqlite_store as store
+
     try:
         account_id, raw_txs, parser_stats = StatementParser().parse_statement(file_path)
         normalized = NormalizationEngine.normalize(raw_txs, account_id)
