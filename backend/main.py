@@ -7,12 +7,18 @@ import uvicorn
 
 from app.core.data_store import data_store
 # Lazy import to avoid startup hang
-# from app.services.orchestrator import process_statement
+from app.services.orchestrator import process_statement
 # from app.engines.cross_statement_intelligence import CrossStatementIntelligenceEngine
-from app.analytics.analytics_api import router as analytics_router
+from app.analytics.analytics_api import router as analytics_router, cache, compute_global_analytics
 from app.analytics.bulk_loader import ingest_file
 
 app = FastAPI(title="SENTINEL - AI Financial Investigation Workstation")
+
+@app.on_event("startup")
+def startup_event():
+    """Pre-warm analytics cache on startup."""
+    analytics = compute_global_analytics()
+    cache.set(analytics)
 
 app.add_middleware(
     CORSMiddleware,

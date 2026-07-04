@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
-import { AlertCircle, TrendingUp, Activity, AlertTriangle, Loader } from 'lucide-react';
+import { AlertCircle, TrendingUp, Activity, AlertTriangle, Loader, RefreshCw } from 'lucide-react';
 import { fetchGlobalAnalytics } from '../hooks/useFinancialIntelligenceStore';
+
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 export default function GlobalAnalyticsDashboard() {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -21,6 +24,19 @@ export default function GlobalAnalyticsDashboard() {
       setError(`Failed to load analytics: ${err.message}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    setError(null);
+    try {
+      await fetch(`${API_BASE}/analytics/refresh-analytics`, { method: 'POST' });
+      await loadAnalytics();
+    } catch (err) {
+      setError(`Failed to refresh analytics: ${err.message}`);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -53,6 +69,18 @@ export default function GlobalAnalyticsDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Refresh Button */}
+      <div className="flex justify-end">
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+        >
+          <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} />
+          {refreshing ? 'Refreshing...' : 'Refresh Analytics'}
+        </button>
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-lg shadow-md p-6">

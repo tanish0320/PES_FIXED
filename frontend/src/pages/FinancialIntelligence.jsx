@@ -23,6 +23,7 @@ export default function FinancialIntelligence() {
   const [searchValue, setSearchValue] = useState('');
   const [searchResults, setSearchResults] = useState(null);
   const [error, setError] = useState(null);
+  const [selectedCycle, setSelectedCycle] = useState(null);
 
   // Load cycles (flagship feature) on mount
   useEffect(() => {
@@ -241,12 +242,13 @@ export default function FinancialIntelligence() {
                     {cycles.cycles.map((cycle, idx) => (
                       <div
                         key={cycle.cycle_id}
-                        className={`p-4 border-l-4 rounded ${
+                        onClick={() => setSelectedCycle(cycle)}
+                        className={`p-4 border-l-4 rounded cursor-pointer transition-all hover:shadow-md ${
                           cycle.risk_score >= 70
-                            ? 'border-red-500 bg-red-50'
+                            ? 'border-red-500 bg-red-50 hover:bg-red-100'
                             : cycle.risk_score >= 50
-                            ? 'border-amber-500 bg-amber-50'
-                            : 'border-blue-500 bg-blue-50'
+                            ? 'border-amber-500 bg-amber-50 hover:bg-amber-100'
+                            : 'border-blue-500 bg-blue-50 hover:bg-blue-100'
                         }`}
                       >
                         <div className="flex justify-between items-start mb-2">
@@ -263,6 +265,7 @@ export default function FinancialIntelligence() {
                         <p className="text-slate-600 text-sm">
                           <strong>Hops:</strong> {cycle.steps} | <strong>Amount:</strong> ${(cycle.total_amount / 100000).toFixed(2)}L | <strong>Duration:</strong> {cycle.duration_days} days
                         </p>
+                        <p className="text-xs text-slate-500 mt-2">Click to view cycle graph</p>
                       </div>
                     ))}
                   </div>
@@ -450,6 +453,228 @@ export default function FinancialIntelligence() {
                   className="inline-block px-6 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-medium"
                 >
                   Back to Global Dataset
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Cycle Graph Modal */}
+        {selectedCycle && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900">Round-Trip Pattern: {selectedCycle.cycle_id}</h2>
+                    <p className="text-slate-600 mt-1">Circular Money Flow Visualization</p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedCycle(null)}
+                    className="text-slate-500 hover:text-slate-700 text-2xl font-bold"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                {/* Key Metrics */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                  <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-600">
+                    <p className="text-slate-600 text-xs uppercase tracking-wide font-semibold">Risk Score</p>
+                    <p className={`text-3xl font-bold mt-1 ${
+                      selectedCycle.risk_score >= 70 ? 'text-red-600' :
+                      selectedCycle.risk_score >= 50 ? 'text-amber-600' :
+                      'text-blue-600'
+                    }`}>{selectedCycle.risk_score.toFixed(0)}%</p>
+                  </div>
+                  <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-600">
+                    <p className="text-slate-600 text-xs uppercase tracking-wide font-semibold">Total Amount</p>
+                    <p className="text-2xl font-bold text-green-600 mt-1">
+                      ₹{(selectedCycle.total_amount >= 1000000
+                        ? (selectedCycle.total_amount / 1000000).toFixed(1) + 'M'
+                        : (selectedCycle.total_amount / 1000).toFixed(1) + 'K')}
+                    </p>
+                  </div>
+                  <div className="bg-purple-50 p-4 rounded-lg border-l-4 border-purple-600">
+                    <p className="text-slate-600 text-xs uppercase tracking-wide font-semibold">Hops</p>
+                    <p className="text-3xl font-bold text-purple-600 mt-1">{selectedCycle.steps}</p>
+                  </div>
+                  <div className="bg-orange-50 p-4 rounded-lg border-l-4 border-orange-600">
+                    <p className="text-slate-600 text-xs uppercase tracking-wide font-semibold">Duration</p>
+                    <p className="text-2xl font-bold text-orange-600 mt-1">{selectedCycle.duration_days}d</p>
+                  </div>
+                </div>
+
+                {/* SVG Graph Visualization */}
+                <div className="mb-6 p-6 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg border border-slate-200">
+                  <h3 className="text-lg font-bold text-slate-900 mb-4">Money Flow Path</h3>
+                  <svg viewBox="0 0 900 500" className="w-full h-96">
+                    <defs>
+                      <marker id="arrowForward" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#3b82f6" />
+                      </marker>
+                      <marker id="arrowReturn" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#16a34a" />
+                      </marker>
+                      <filter id="glow">
+                        <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                        <feMerge>
+                          <feMergeNode in="coloredBlur"/>
+                          <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                      </filter>
+                    </defs>
+
+                    {/* Main path visualization */}
+                    {selectedCycle.accounts && selectedCycle.accounts.length > 0 && (() => {
+                      const accounts = selectedCycle.accounts;
+                      const nodeRadius = 35;
+                      const spacing = 750 / Math.max(accounts.length - 1, 1);
+                      const positions = accounts.map((_, i) => ({
+                        x: 75 + i * spacing,
+                        y: 250,
+                        account: accounts[i]
+                      }));
+
+                      return (
+                        <g>
+                          {/* Connection lines - arrows between accounts */}
+                          {positions.map((pos, idx) => {
+                            const nextIdx = (idx + 1) % positions.length;
+                            const nextPos = positions[nextIdx];
+                            const isLastEdge = idx === positions.length - 1;
+
+                            return (
+                              <g key={`edge-${idx}`}>
+                                {/* Line */}
+                                <line
+                                  x1={pos.x + nodeRadius}
+                                  y1={pos.y}
+                                  x2={nextPos.x - nodeRadius}
+                                  y2={nextPos.y}
+                                  stroke={isLastEdge ? '#16a34a' : '#3b82f6'}
+                                  strokeWidth="3"
+                                  markerEnd={isLastEdge ? "url(#arrowReturn)" : "url(#arrowForward)"}
+                                />
+                                {/* Amount label */}
+                                <rect
+                                  x={(pos.x + nextPos.x) / 2 - 40}
+                                  y={pos.y - 30}
+                                  width="80"
+                                  height="28"
+                                  fill={isLastEdge ? '#dcfce7' : '#dbeafe'}
+                                  stroke={isLastEdge ? '#16a34a' : '#3b82f6'}
+                                  strokeWidth="1"
+                                  rx="4"
+                                />
+                                <text
+                                  x={(pos.x + nextPos.x) / 2}
+                                  y={pos.y - 10}
+                                  textAnchor="middle"
+                                  className="text-xs font-bold"
+                                  fill={isLastEdge ? '#166534' : '#0c4a6e'}
+                                >
+                                  {selectedCycle.total_amount >= 1000000
+                                    ? `₹${(selectedCycle.total_amount / 1000000).toFixed(1)}M`
+                                    : `₹${(selectedCycle.total_amount / 1000).toFixed(1)}K`}
+                                </text>
+                              </g>
+                            );
+                          })}
+
+                          {/* Account nodes */}
+                          {positions.map((pos, idx) => (
+                            <g key={`node-${idx}`} filter="url(#glow)">
+                              <circle
+                                cx={pos.x}
+                                cy={pos.y}
+                                r={nodeRadius}
+                                fill={
+                                  idx === 0 ? '#fee2e2' :
+                                  idx === positions.length - 1 ? '#dbeafe' :
+                                  '#f3f4f6'
+                                }
+                                stroke={
+                                  idx === 0 ? '#dc2626' :
+                                  idx === positions.length - 1 ? '#3b82f6' :
+                                  '#9ca3af'
+                                }
+                                strokeWidth="3"
+                              />
+                              <text
+                                x={pos.x}
+                                y={pos.y - 8}
+                                textAnchor="middle"
+                                className="text-xs font-bold"
+                                fill="#1e293b"
+                              >
+                                {pos.account.substring(0, 8)}
+                              </text>
+                              <text
+                                x={pos.x}
+                                y={pos.y + 8}
+                                textAnchor="middle"
+                                className="text-xs"
+                                fill="#64748b"
+                              >
+                                {idx === 0 ? 'Start' : idx === positions.length - 1 ? 'End' : `Hop ${idx}`}
+                              </text>
+                            </g>
+                          ))}
+
+                          {/* Legend */}
+                          <g transform="translate(20, 420)">
+                            <text x="0" y="0" className="text-sm font-bold" fill="#1e293b">Legend:</text>
+
+                            <line x1="0" y1="20" x2="20" y2="20" stroke="#3b82f6" strokeWidth="2" markerEnd="url(#arrowForward)" />
+                            <text x="30" y="24" className="text-xs" fill="#1e293b">Forward Flow</text>
+
+                            <line x1="150" y1="20" x2="170" y2="20" stroke="#16a34a" strokeWidth="2" markerEnd="url(#arrowReturn)" />
+                            <text x="180" y="24" className="text-xs" fill="#1e293b">Return Flow</text>
+
+                            <circle cx="330" cy="20" r="6" fill="#fee2e2" stroke="#dc2626" strokeWidth="1" />
+                            <text x="345" y="24" className="text-xs" fill="#1e293b">Start Account</text>
+
+                            <circle cx="520" cy="20" r="6" fill="#dbeafe" stroke="#3b82f6" strokeWidth="1" />
+                            <text x="535" y="24" className="text-xs" fill="#1e293b">End Account</text>
+                          </g>
+                        </g>
+                      );
+                    })()}
+                  </svg>
+                </div>
+
+                {/* Account Path Details */}
+                <div className="mb-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                  <h3 className="font-bold text-slate-900 mb-3">Account Sequence</h3>
+                  <div className="flex flex-wrap gap-2 items-center justify-start text-sm">
+                    {selectedCycle.accounts && selectedCycle.accounts.map((acc, idx) => (
+                      <span key={idx}>
+                        <span className={`inline-block px-3 py-1 rounded-full font-mono text-xs font-bold ${
+                          idx === 0 ? 'bg-red-100 text-red-900' :
+                          idx === selectedCycle.accounts.length - 1 ? 'bg-blue-100 text-blue-900' :
+                          'bg-slate-200 text-slate-900'
+                        }`}>
+                          {acc}
+                        </span>
+                        {idx < selectedCycle.accounts.length - 1 && <span className="mx-1 text-slate-400">→</span>}
+                        {idx === selectedCycle.accounts.length - 1 && <span className="mx-1 text-slate-400">→</span>}
+                      </span>
+                    ))}
+                    {selectedCycle.accounts && selectedCycle.accounts.length > 0 && (
+                      <span className="inline-block px-3 py-1 rounded-full font-mono text-xs font-bold bg-red-100 text-red-900">
+                        {selectedCycle.accounts[0]}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Close Button */}
+                <button
+                  onClick={() => setSelectedCycle(null)}
+                  className="w-full px-4 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Close Visualization
                 </button>
               </div>
             </div>

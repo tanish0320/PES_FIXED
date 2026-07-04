@@ -10,11 +10,11 @@ export const fetchGlobalGraph = () =>
 
 // Legacy endpoints
 export const fetchCycles = () =>
-  fetchGlobalAnalytics().then(data => ({
+  fetch(`${API_BASE}/analytics/cycles`).then(r => r.json()).then(data => ({
     cycles: data.cycles || [],
-    cycle_count: data.cycles?.total_cycles || 0,
-    high_risk_cycles: data.cycles?.high_risk_cycles || [],
-    total_volume_in_cycles: data.cycles?.total_volume_in_cycles || 0
+    cycle_count: data.cycles?.length || 0,
+    high_risk_cycles: data.cycles?.filter(c => c.risk_score >= 70) || [],
+    total_volume_in_cycles: (data.cycles || []).reduce((sum, c) => sum + (c.total_amount || 0), 0)
   }));
 
 export const fetchMoneyTrails = (accountId) =>
@@ -31,8 +31,9 @@ export const fetchMoneyTrails = (accountId) =>
   });
 
 export const fetchTopMoneyHubs = (limit = 10) =>
-  fetchGlobalAnalytics().then(data => ({
-    hubs: data.top_money_hubs || []
+  fetch(`${API_BASE}/analytics/top-money-hubs?limit=${limit}`).then(r => r.json()).then(data => ({
+    hubs: data.hubs || [],
+    count: data.count || 0
   }));
 
 export const fetchAccount = (id) =>
