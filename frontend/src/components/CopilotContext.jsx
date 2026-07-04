@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 
 const CopilotContext = createContext(null);
 
@@ -44,18 +44,18 @@ export function CopilotProvider({ children }) {
   // Client-side tool registry
   const [toolHandlers, setToolHandlers] = useState({});
 
-  const registerToolHandler = (name, handler) => {
+  const registerToolHandler = useCallback((name, handler) => {
     setToolHandlers(prev => ({ ...prev, [name]: handler }));
-  };
+  }, []);
 
-  const executeTool = (name, ...args) => {
+  const executeTool = useCallback((name, ...args) => {
     if (toolHandlers[name]) {
       console.log(`[Copilot Tool Engine] Executing: ${name}`, args);
       return toolHandlers[name](...args);
     }
     console.warn(`[Copilot Tool Engine] Tool not found: ${name}`);
     return null;
-  };
+  }, [toolHandlers]);
 
   const value = {
     isOpen,

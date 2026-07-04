@@ -751,7 +751,7 @@ const GraphCanvas = forwardRef(({
     if (!container || !cy || !window.ResizeObserver) return undefined;
 
     const observer = new ResizeObserver(() => {
-      if (cy.isDestroyed()) return;
+      if (cy.destroyed && cy.destroyed()) return;
       cy.resize();
       if (nodes.length > 0) {
         cy.fit(cy.elements(), getGraphBounds(container).padding);
