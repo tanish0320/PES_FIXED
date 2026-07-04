@@ -3,6 +3,7 @@ import cytoscape from 'cytoscape';
 import { graphStyles, getRiskColors } from './graphStyles';
 import { getRole } from '../../roleStore';
 import { maskAccount } from '../../utils/maskAccount';
+import { MoneyTrailAnimator } from './GraphEnhancements';
 
 const formatTransactionLabel = (edge) => {
   const amount = Number(edge.amount || 0);
@@ -689,6 +690,99 @@ const GraphCanvas = forwardRef(({
           queue: false
         });
       }
+    },
+
+    animateMoneyTrail: (accounts, amounts, totalAmount) => {
+      const cy = cyRef.current;
+      if (!cy) return;
+
+      // Fade all nodes except those in the trail
+      const trailNodeIds = new Set(accounts.map(String));
+
+      cy.nodes().forEach(node => {
+        if (!trailNodeIds.has(String(node.id()))) {
+          node.style('opacity', 0.15);
+        } else {
+          node.style('opacity', 1);
+        }
+      });
+
+      // Animate edges sequentially
+      let edgeIndex = 0;
+      const animateNextEdge = () => {
+        if (edgeIndex >= accounts.length - 1) return;
+
+        const source = String(accounts[edgeIndex]);
+        const target = String(accounts[edgeIndex + 1]);
+
+        // Find and highlight the edge
+        const matchingEdges = cy.edges().filter(e =>
+          String(e.source().id()) === source && String(e.target().id()) === target
+        );
+
+        if (matchingEdges.length > 0) {
+          const edge = matchingEdges[0];
+          edge.style({
+            'line-color': '#4ecdc4',
+            'target-arrow-color': '#4ecdc4',
+            'width': 5,
+            'opacity': 1,
+            'z-index': 1000
+          });
+
+          // Highlight the destination node
+          const targetNode = cy.getElementById(target);
+          if (targetNode.length > 0) {
+            const originalBgColor = targetNode.style('background-color');
+            const originalBorderWidth = targetNode.style('border-width');
+            const originalBorderColor = targetNode.style('border-color');
+
+            // Make node glow: bright cyan background + thick bright border
+            targetNode.style({
+              'background-color': '#00ff99',
+              'border-width': 4,
+              'border-color': '#00ffcc',
+              'opacity': 1,
+              'z-index': 999
+            });
+
+            // After animation, reset the node
+            setTimeout(() => {
+              targetNode.style({
+                'background-color': originalBgColor,
+                'border-width': originalBorderWidth,
+                'border-color': originalBorderColor
+              });
+            }, 600);
+          }
+        }
+
+        edgeIndex++;
+        setTimeout(animateNextEdge, 600);
+      };
+
+      animateNextEdge();
+    },
+
+    clearMoneyTrailAnimation: () => {
+      const cy = cyRef.current;
+      if (!cy) return;
+
+      cy.nodes().style({
+        'opacity': 1,
+        'border-width': null,
+        'border-color': null
+      });
+
+      cy.edges().forEach(edge => {
+        edge.style({
+          'opacity': 1,
+          'width': null,
+          'line-color': null,
+          'target-arrow-color': null,
+          'z-index': 'auto'
+        });
+      });
     }
   }));
 
