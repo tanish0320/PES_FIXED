@@ -10,15 +10,16 @@ import Graph from './pages/Graph';
 import Upload from './pages/Upload';
 import Report from './pages/Report';
 import CrossCaseIntelligence from './pages/CrossCaseIntelligence';
+import FinancialIntelligence from './pages/FinancialIntelligence';
 
 import ErrorBoundary from './components/ErrorBoundary';
 import Login from './components/Login';
 import CopilotPopup from './components/Copilot/CopilotPopup';
 import { CopilotProvider, useCopilot } from './components/CopilotContext';
 import { getRole } from './roleStore';
-import { 
-  UploadCloud, LayoutDashboard, FileText, Search, 
-  ShieldAlert, LogOut, GitBranch, ArrowRight, User
+import {
+  UploadCloud, LayoutDashboard, FileText, Search,
+  ShieldAlert, LogOut, GitBranch, ArrowRight, User, Globe
 } from 'lucide-react';
 
 const NavigationSidebar = ({ handleLogout, role }) => {
@@ -180,14 +181,21 @@ const NavigationSidebar = ({ handleLogout, role }) => {
           Investigations
         </Link>
         {cases.length > 1 && (
-          <Link 
-            to="/cross-case-intelligence" 
+          <Link
+            to="/cross-case-intelligence"
             className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${getActiveCls('/cross-case-intelligence')}`}
           >
             <GitBranch size={16} />
             Cross-Case Intelligence
           </Link>
         )}
+        <Link
+          to="/financial-intelligence"
+          className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${getActiveCls('/financial-intelligence')}`}
+        >
+          <Globe size={16} />
+          Financial Intelligence
+        </Link>
       </nav>
 
       {/* Logout & Footer */}
@@ -271,6 +279,7 @@ const AppContent = () => {
           <Route path="/graph/:caseId" element={<ErrorBoundary><Graph /></ErrorBoundary>} />
           <Route path="/report/:caseId" element={<ErrorBoundary><Report /></ErrorBoundary>} />
           <Route path="/cross-case-intelligence" element={<ErrorBoundary><CrossCaseIntelligence /></ErrorBoundary>} />
+          <Route path="/financial-intelligence" element={<ErrorBoundary><FinancialIntelligence /></ErrorBoundary>} />
         </Routes>
       </main>
 

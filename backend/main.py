@@ -8,6 +8,8 @@ import uvicorn
 from app.core.data_store import data_store
 from app.services.orchestrator import process_statement
 from app.engines.cross_statement_intelligence import CrossStatementIntelligenceEngine
+from app.analytics.analytics_api import router as analytics_router
+from app.analytics.bulk_loader import ingest_file
 
 app = FastAPI(title="SENTINEL - AI Financial Investigation Workstation")
 
@@ -21,6 +23,7 @@ app.add_middleware(
 
 from copilot.api import router as copilot_router
 app.include_router(copilot_router)
+app.include_router(analytics_router)
 
 # Upload directory
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
@@ -43,6 +46,13 @@ async def upload_statement(file: UploadFile = File(...)):
         
     try:
         result = process_statement(file_path, file.filename, data_store)
+
+        # Analytics (Global Financial Intelligence Engine) — additive, non-blocking
+        try:
+            ingest_file(file_path)
+        except Exception as analytics_err:
+            print(f"[analytics] non-fatal ingestion error: {analytics_err}")
+
         return result
     except Exception as e:
         import traceback
