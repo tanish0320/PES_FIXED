@@ -29,7 +29,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { stats, cases, loading, fetchStats, fetchInvestigations, fetchInvestigation } = useDataStore();
 
-  const { setDashboardStats } = useCopilot();
+  const { registerToolHandler } = useCopilot();
 
   const [globalSearch, setGlobalSearch] = useState('');
   
@@ -48,13 +48,8 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (stats) {
-      setDashboardStats(stats);
-    }
-    return () => {
-      setDashboardStats({});
-    };
-  }, [stats, setDashboardStats]);
+    registerToolHandler('getDashboardStats', () => stats);
+  }, [stats, registerToolHandler]);
 
   // Fetch detailed information for all cases when loaded
   useEffect(() => {

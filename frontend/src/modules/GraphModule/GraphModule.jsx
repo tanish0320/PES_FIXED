@@ -29,12 +29,8 @@ const GraphModule = ({ caseDetails }) => {
 
   const { 
     setSelectedGraphNode, 
-    setSelectedReport, 
-    setCurrentTimeline,
-    setGraphState,
     setSelectedCase,
     setSelectedTransaction,
-    setSearchQuery,
     registerToolHandler
   } = useCopilot();
 
@@ -47,21 +43,19 @@ const GraphModule = ({ caseDetails }) => {
   useEffect(() => {
     if (caseDetails) {
       setSelectedCase(caseDetails.case_id || caseDetails.id);
-      if (caseDetails.report) {
-        setSelectedReport(caseDetails.report);
-        setCurrentTimeline(caseDetails.report.timeline || []);
-      }
-      if (caseDetails.graph) {
-        setGraphState(caseDetails.graph);
-      }
     }
     return () => {
       setSelectedCase(null);
-      setSelectedReport(null);
-      setCurrentTimeline([]);
-      setGraphState({ nodes: [], edges: [] });
     };
-  }, [caseDetails, setSelectedCase, setSelectedReport, setCurrentTimeline, setGraphState]);
+  }, [caseDetails, setSelectedCase]);
+
+  useEffect(() => {
+    registerToolHandler('getGraphState', () => caseDetails?.graph || { nodes: [], edges: [] });
+    registerToolHandler('getTimeline', () => caseDetails?.report?.timeline || []);
+    registerToolHandler('getReport', () => caseDetails?.report || {});
+    registerToolHandler('getCaseDetails', () => caseDetails);
+    registerToolHandler('getSearchQuery', () => globalSearch);
+  }, [caseDetails, globalSearch, registerToolHandler]);
 
   useEffect(() => {
     if (canvasRef.current) {
@@ -103,10 +97,6 @@ const GraphModule = ({ caseDetails }) => {
   useEffect(() => {
     setSelectedTransaction(selectedTx ? (selectedTx.id || selectedTx.transaction_id) : null);
   }, [selectedTx, setSelectedTransaction]);
-
-  useEffect(() => {
-    setSearchQuery(globalSearch);
-  }, [globalSearch, setSearchQuery]);
 
   const speedRef = useRef(playbackSpeed);
 

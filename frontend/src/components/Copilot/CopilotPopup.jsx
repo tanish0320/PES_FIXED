@@ -31,10 +31,7 @@ export default function CopilotPopup() {
     currentPage,
     currentFilters,
     toolHandlers,
-    currentTimeline,
-    graphState,
-    dashboardStats,
-    selectedReport
+    executeTool
   } = useCopilot();
 
   const [inputText, setInputText] = useState('');
@@ -169,7 +166,7 @@ export default function CopilotPopup() {
         isOpen, setIsOpen, messages, setMessages, loading, setLoading,
         streaming, setStreaming, selectedNode, selectedTransaction,
         selectedCase, setSelectedCase, currentPage, currentFilters, toolHandlers,
-        currentTimeline, graphState, dashboardStats
+        executeTool
       };
 
       if (cmd === '/summary') {
@@ -250,12 +247,11 @@ export default function CopilotPopup() {
     setStreamText('Analyzing graph...');
     setAutoScroll(true);
 
-    // Setup active context helper object
     const copilotContext = {
       isOpen, setIsOpen, messages, setMessages, loading, setLoading,
       streaming, setStreaming, selectedNode, selectedTransaction,
       selectedCase, setSelectedCase, currentPage, currentFilters, toolHandlers,
-      currentTimeline, graphState, dashboardStats
+      executeTool
     };
 
     // Cyclical status message simulation
@@ -703,12 +699,11 @@ export default function CopilotPopup() {
       {/* 2. Persistent Floating Window */}
       {/* 2. Persistent Floating Window */}
       {isOpen && (() => {
-        // Setup context for monitor
         const monitorContext = {
-          selectedCase, graphState, currentTimeline, selectedReport, toolHandlers,
+          selectedCase, toolHandlers, executeTool,
           isOpen, setIsOpen, messages, setMessages, loading, setLoading,
           streaming, setStreaming, selectedNode, selectedTransaction,
-          currentPage, currentFilters, dashboardStats
+          currentPage, currentFilters
         };
         const monitorData = selectedCase ? InvestigationMonitor.monitor(monitorContext) : { events: [], health: null, nextActions: [] };
 
@@ -862,7 +857,7 @@ export default function CopilotPopup() {
                         isOpen, setIsOpen, messages, setMessages, loading, setLoading,
                         streaming, setStreaming, selectedNode, selectedTransaction,
                         selectedCase, setSelectedCase, currentPage, currentFilters, toolHandlers,
-                        currentTimeline, graphState, dashboardStats
+                        executeTool
                       };
                       const analysis = ReasoningEngine.analyze(copilotContextForEngine);
                       

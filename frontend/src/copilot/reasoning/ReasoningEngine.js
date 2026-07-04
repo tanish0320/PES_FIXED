@@ -5,10 +5,11 @@ export const ReasoningEngine = {
   
   // Primary entrypoint to analyze active investigation data
   analyze: (context) => {
-    const nodes = context.graphState?.nodes || [];
-    const edges = context.graphState?.edges || [];
-    const timeline = context.currentTimeline || [];
-    const report = context.selectedReport || {};
+    const graphState = context.executeTool?.('getGraphState') || { nodes: [], edges: [] };
+    const nodes = graphState.nodes || [];
+    const edges = graphState.edges || [];
+    const timeline = context.executeTool?.('getTimeline') || [];
+    const report = context.executeTool?.('getReport') || {};
 
     if (nodes.length === 0) {
       return {

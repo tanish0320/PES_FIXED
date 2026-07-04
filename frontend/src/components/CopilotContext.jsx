@@ -32,15 +32,6 @@ export function CopilotProvider({ children }) {
   const [currentFilters, setCurrentFilters] = useState({});
   const [conversationId, setConversationId] = useState(null);
 
-  // Extended state variables
-  const [selectedEdge, setSelectedEdge] = useState(null);
-  const [selectedReport, setSelectedReport] = useState(null);
-  const [currentTimeline, setCurrentTimeline] = useState([]);
-  const [graphState, setGraphState] = useState({ nodes: [], edges: [] });
-  const [dashboardStats, setDashboardStats] = useState({});
-  const [searchQuery, setSearchQuery] = useState('');
-  const [conversationHistory, setConversationHistory] = useState([]);
-
   // Client-side tool registry
   const [toolHandlers, setToolHandlers] = useState({});
 
@@ -82,22 +73,6 @@ export function CopilotProvider({ children }) {
     setCurrentFilters,
     conversationId,
     setConversationId,
-    
-    // Extended states
-    selectedEdge,
-    setSelectedEdge,
-    selectedReport,
-    setSelectedReport,
-    currentTimeline,
-    setCurrentTimeline,
-    graphState,
-    setGraphState,
-    dashboardStats,
-    setDashboardStats,
-    searchQuery,
-    setSearchQuery,
-    conversationHistory,
-    setConversationHistory,
     
     // Registry handlers
     toolHandlers,

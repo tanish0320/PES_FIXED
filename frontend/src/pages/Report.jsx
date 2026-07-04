@@ -27,7 +27,7 @@ export default function Report() {
   const role = getRole();
   const isViewer = role !== 'admin';
 
-  const { setSelectedCase, setSelectedReport, setCurrentTimeline } = useCopilot();
+  const { setSelectedCase, registerToolHandler } = useCopilot();
 
   const [report, setReport] = useState(null);
   const [caseDetails, setCaseDetails] = useState(null);
@@ -57,16 +57,16 @@ export default function Report() {
     if (caseId) {
       setSelectedCase(caseId);
     }
-    if (report) {
-      setSelectedReport(report);
-      setCurrentTimeline(report.timeline || []);
-    }
     return () => {
       setSelectedCase(null);
-      setSelectedReport(null);
-      setCurrentTimeline([]);
     };
-  }, [caseId, report, setSelectedCase, setSelectedReport, setCurrentTimeline]);
+  }, [caseId, setSelectedCase]);
+
+  useEffect(() => {
+    registerToolHandler('getReport', () => report);
+    registerToolHandler('getTimeline', () => report?.timeline || []);
+    registerToolHandler('getCaseDetails', () => caseDetails);
+  }, [report, caseDetails, registerToolHandler]);
 
   useEffect(() => {
     async function loadData() {
