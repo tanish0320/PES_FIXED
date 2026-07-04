@@ -811,6 +811,22 @@ const GraphCanvas = forwardRef(({
       if (path.length > 1) {
         console.log('[Money Trail] Animating path with', path.length, 'nodes');
 
+        // Glow the starting node immediately
+        const startNode = cy.getElementById(String(path[0]));
+        if (startNode.length > 0) {
+          console.log('[Money Trail] Glowing start node:', path[0]);
+          const origBg = startNode.style('background-color');
+          const origBorder = startNode.style('border-color');
+
+          startNode.style({
+            'background-color': '#00ff99',
+            'border-color': '#00ffcc',
+            'border-width': 4,
+            'width': 80,
+            'height': 80
+          });
+        }
+
         // Fade all nodes except those in the trail
         const trailNodeIds = new Set(path.map(String));
 
@@ -868,35 +884,37 @@ const GraphCanvas = forwardRef(({
               'width': 5,
               'opacity': 1
             });
+          }
 
-            // Highlight the destination node
-            const targetNode = cy.getElementById(target);
-            if (targetNode.length > 0) {
-              console.log('[Money Trail] Glowing node:', target);
+          // Highlight the destination node if it exists in graph
+          const targetNode = cy.getElementById(target);
+          if (targetNode.length > 0) {
+            console.log('[Money Trail] Glowing destination node:', target);
 
-              // Store original color
-              const origBg = targetNode.style('background-color');
-              const origBorder = targetNode.style('border-color');
+            // Store original color
+            const origBg = targetNode.style('background-color');
+            const origBorder = targetNode.style('border-color');
 
+            targetNode.style({
+              'background-color': '#00ff99',
+              'border-color': '#00ffcc',
+              'border-width': 4,
+              'width': 80,
+              'height': 80
+            });
+
+            // After animation, reset the node
+            setTimeout(() => {
               targetNode.style({
-                'background-color': '#00ff99',
-                'border-color': '#00ffcc',
-                'border-width': 4,
-                'width': 80,
-                'height': 80
+                'background-color': origBg,
+                'border-color': origBorder,
+                'border-width': 2,
+                'width': 65,
+                'height': 65
               });
-
-              // After animation, reset the node
-              setTimeout(() => {
-                targetNode.style({
-                  'background-color': origBg,
-                  'border-color': origBorder,
-                  'border-width': 2,
-                  'width': 65,
-                  'height': 65
-                });
-              }, 600);
-            }
+            }, 600);
+          } else {
+            console.log('[Money Trail] Destination node not in graph:', target);
           }
 
           edgeIndex++;
