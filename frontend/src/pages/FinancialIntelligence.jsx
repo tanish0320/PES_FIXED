@@ -119,6 +119,13 @@ export default function FinancialIntelligence() {
     setSearchResults(null);
   };
 
+  const formatCurrency = (amount) => {
+    if (amount >= 1e9) return `₹${(amount / 1e9).toFixed(2)}B`;
+    if (amount >= 1e6) return `₹${(amount / 1e6).toFixed(2)}M`;
+    if (amount >= 1e3) return `₹${(amount / 1e3).toFixed(2)}K`;
+    return `₹${amount.toFixed(2)}`;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
       <div className="max-w-7xl mx-auto">
@@ -296,14 +303,14 @@ export default function FinancialIntelligence() {
                             <div className="text-sm text-slate-600">Accounts Tracked</div>
                           </div>
                           <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-600">
-                            <div className="text-3xl font-bold text-green-600">
-                              ₹{(Object.values(trails.accounts || {}).reduce((sum, a) => sum + (a.total_inflow || 0), 0) / 1e6).toFixed(0)}M
+                            <div className="text-2xl font-bold text-green-600">
+                              {formatCurrency(Object.values(trails.accounts || {}).reduce((sum, a) => sum + (a.total_inflow || 0), 0))}
                             </div>
                             <div className="text-sm text-slate-600">Total Inflow</div>
                           </div>
                           <div className="bg-red-50 p-4 rounded-lg border-l-4 border-red-600">
-                            <div className="text-3xl font-bold text-red-600">
-                              ₹{(Object.values(trails.accounts || {}).reduce((sum, a) => sum + (a.total_outflow || 0), 0) / 1e6).toFixed(0)}M
+                            <div className="text-2xl font-bold text-red-600">
+                              {formatCurrency(Object.values(trails.accounts || {}).reduce((sum, a) => sum + (a.total_outflow || 0), 0))}
                             </div>
                             <div className="text-sm text-slate-600">Total Outflow</div>
                           </div>
@@ -321,20 +328,16 @@ export default function FinancialIntelligence() {
                             <div className="grid grid-cols-3 gap-4 mb-2">
                               <div>
                                 <p className="text-xs text-slate-500 uppercase font-semibold">Inflow</p>
-                                <p className="text-sm font-bold text-green-600">
-                                  ₹{(data.total_inflow >= 1e6 ? (data.total_inflow / 1e6).toFixed(1) + 'M' : (data.total_inflow / 1e3).toFixed(1) + 'K')}
-                                </p>
+                                <p className="text-sm font-bold text-green-600">{formatCurrency(data.total_inflow)}</p>
                               </div>
                               <div>
                                 <p className="text-xs text-slate-500 uppercase font-semibold">Outflow</p>
-                                <p className="text-sm font-bold text-red-600">
-                                  ₹{(data.total_outflow >= 1e6 ? (data.total_outflow / 1e6).toFixed(1) + 'M' : (data.total_outflow / 1e3).toFixed(1) + 'K')}
-                                </p>
+                                <p className="text-sm font-bold text-red-600">{formatCurrency(data.total_outflow)}</p>
                               </div>
                               <div>
                                 <p className="text-xs text-slate-500 uppercase font-semibold">Net Flow</p>
                                 <p className={`text-sm font-bold ${data.net_flow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                  ₹{(Math.abs(data.net_flow) >= 1e6 ? (Math.abs(data.net_flow) / 1e6).toFixed(1) + 'M' : (Math.abs(data.net_flow) / 1e3).toFixed(1) + 'K')}
+                                  {formatCurrency(Math.abs(data.net_flow))}
                                 </p>
                               </div>
                             </div>
@@ -493,26 +496,16 @@ export default function FinancialIntelligence() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-600">
                     <p className="text-slate-600 text-xs uppercase tracking-wide font-semibold">Total Inflow</p>
-                    <p className="text-3xl font-bold text-green-600 mt-1">
-                      ₹{(selectedTrail.total_inflow >= 1e9 ? (selectedTrail.total_inflow / 1e9).toFixed(1) + 'B' :
-                        selectedTrail.total_inflow >= 1e6 ? (selectedTrail.total_inflow / 1e6).toFixed(1) + 'M' :
-                        (selectedTrail.total_inflow / 1e3).toFixed(1) + 'K')}
-                    </p>
+                    <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(selectedTrail.total_inflow)}</p>
                   </div>
                   <div className="bg-red-50 p-4 rounded-lg border-l-4 border-red-600">
                     <p className="text-slate-600 text-xs uppercase tracking-wide font-semibold">Total Outflow</p>
-                    <p className="text-3xl font-bold text-red-600 mt-1">
-                      ₹{(selectedTrail.total_outflow >= 1e9 ? (selectedTrail.total_outflow / 1e9).toFixed(1) + 'B' :
-                        selectedTrail.total_outflow >= 1e6 ? (selectedTrail.total_outflow / 1e6).toFixed(1) + 'M' :
-                        (selectedTrail.total_outflow / 1e3).toFixed(1) + 'K')}
-                    </p>
+                    <p className="text-2xl font-bold text-red-600 mt-1">{formatCurrency(selectedTrail.total_outflow)}</p>
                   </div>
                   <div className={`p-4 rounded-lg border-l-4 ${selectedTrail.net_flow >= 0 ? 'bg-blue-50 border-blue-600' : 'bg-orange-50 border-orange-600'}`}>
                     <p className="text-slate-600 text-xs uppercase tracking-wide font-semibold">Net Flow</p>
-                    <p className={`text-3xl font-bold mt-1 ${selectedTrail.net_flow >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
-                      ₹{(Math.abs(selectedTrail.net_flow) >= 1e9 ? (Math.abs(selectedTrail.net_flow) / 1e9).toFixed(1) + 'B' :
-                        Math.abs(selectedTrail.net_flow) >= 1e6 ? (Math.abs(selectedTrail.net_flow) / 1e6).toFixed(1) + 'M' :
-                        (Math.abs(selectedTrail.net_flow) / 1e3).toFixed(1) + 'K')}
+                    <p className={`text-2xl font-bold mt-1 ${selectedTrail.net_flow >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                      {formatCurrency(Math.abs(selectedTrail.net_flow))}
                     </p>
                   </div>
                 </div>
@@ -540,8 +533,8 @@ export default function FinancialIntelligence() {
                     {/* Inflow box */}
                     <rect x="50" y="120" width="140" height="160" fill="#dcfce7" stroke="#16a34a" strokeWidth="2" rx="8" />
                     <text x="120" y="150" textAnchor="middle" className="text-sm font-bold" fill="#166534">INFLOW</text>
-                    <text x="120" y="250" textAnchor="middle" className="text-lg font-bold" fill="#16a34a">
-                      ₹{(selectedTrail.total_inflow >= 1e6 ? (selectedTrail.total_inflow / 1e6).toFixed(1) + 'M' : (selectedTrail.total_inflow / 1e3).toFixed(1) + 'K')}
+                    <text x="120" y="245" textAnchor="middle" className="text-xs font-bold" fill="#16a34a">
+                      {formatCurrency(selectedTrail.total_inflow)}
                     </text>
 
                     {/* Account circle */}
@@ -552,8 +545,8 @@ export default function FinancialIntelligence() {
                     {/* Outflow box */}
                     <rect x="610" y="120" width="140" height="160" fill="#fee2e2" stroke="#dc2626" strokeWidth="2" rx="8" />
                     <text x="680" y="150" textAnchor="middle" className="text-sm font-bold" fill="#991b1b">OUTFLOW</text>
-                    <text x="680" y="250" textAnchor="middle" className="text-lg font-bold" fill="#dc2626">
-                      ₹{(selectedTrail.total_outflow >= 1e6 ? (selectedTrail.total_outflow / 1e6).toFixed(1) + 'M' : (selectedTrail.total_outflow / 1e3).toFixed(1) + 'K')}
+                    <text x="680" y="245" textAnchor="middle" className="text-xs font-bold" fill="#dc2626">
+                      {formatCurrency(selectedTrail.total_outflow)}
                     </text>
 
                     {/* Arrows */}
@@ -579,12 +572,12 @@ export default function FinancialIntelligence() {
                 <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <h3 className="font-bold text-slate-900 mb-2">FIFO Allocation Method</h3>
                   <p className="text-slate-700 text-sm mb-3">
-                    This account received <strong>₹{(selectedTrail.total_inflow >= 1e6 ? (selectedTrail.total_inflow / 1e6).toFixed(1) + 'M' : (selectedTrail.total_inflow / 1e3).toFixed(1) + 'K')}</strong> across multiple transactions. Using FIFO (First-In-First-Out) principle, the oldest money received is allocated first when this account sends money out.
+                    This account received <strong>{formatCurrency(selectedTrail.total_inflow)}</strong> across multiple transactions. Using FIFO (First-In-First-Out) principle, the oldest money received is allocated first when this account sends money out.
                   </p>
                   <div className="bg-white p-3 rounded border border-blue-200">
                     <p className="text-xs text-slate-600">
                       <strong>Net Position:</strong> {selectedTrail.net_flow >= 0 ? 'Money Receiver' : 'Money Sender'} -
-                      {selectedTrail.net_flow >= 0 ? 'Received' : 'Sent'} <strong>₹{(Math.abs(selectedTrail.net_flow) >= 1e6 ? (Math.abs(selectedTrail.net_flow) / 1e6).toFixed(1) + 'M' : (Math.abs(selectedTrail.net_flow) / 1e3).toFixed(1) + 'K')}</strong> more than {selectedTrail.net_flow >= 0 ? 'sent' : 'received'}
+                      {selectedTrail.net_flow >= 0 ? 'Received' : 'Sent'} <strong>{formatCurrency(Math.abs(selectedTrail.net_flow))}</strong> more than {selectedTrail.net_flow >= 0 ? 'sent' : 'received'}
                     </p>
                   </div>
                 </div>
