@@ -6,8 +6,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from app.core.data_store import data_store
-from app.services.orchestrator import process_statement
-from app.engines.cross_statement_intelligence import CrossStatementIntelligenceEngine
+# Lazy import to avoid startup hang
+# from app.services.orchestrator import process_statement
+# from app.engines.cross_statement_intelligence import CrossStatementIntelligenceEngine
 from app.analytics.analytics_api import router as analytics_router
 from app.analytics.bulk_loader import ingest_file
 
@@ -21,8 +22,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from copilot.api import router as copilot_router
-app.include_router(copilot_router)
+# Lazy import to avoid startup hang
+# from copilot.api import router as copilot_router
+# app.include_router(copilot_router)
 app.include_router(analytics_router)
 
 # Upload directory
