@@ -33,7 +33,8 @@ export default function CopilotPopup() {
     toolHandlers,
     currentTimeline,
     graphState,
-    dashboardStats
+    dashboardStats,
+    selectedReport
   } = useCopilot();
 
   const [inputText, setInputText] = useState('');
