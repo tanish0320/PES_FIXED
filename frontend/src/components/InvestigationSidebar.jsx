@@ -115,7 +115,6 @@ const InvestigationSidebar = ({
   onTxSelect // optional callback to select a different transaction in mini-timeline
 }) => {
   const navigate = useNavigate();
-  if (!isOpen) return null;
   const isViewer = role !== 'admin';
 
   // Extract entities from current transaction description
@@ -144,6 +143,8 @@ const InvestigationSidebar = ({
     const end = Math.min(sorted.length, idx + 3);
     return sorted.slice(start, end);
   }, [caseDetails, selectedTransaction]);
+
+  if (!isOpen) return null;
 
   const caseId = selectedCase?.case_id || selectedTransaction?.case_id || caseDetails?.case?.case_id;
 

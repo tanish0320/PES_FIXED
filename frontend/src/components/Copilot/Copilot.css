@@ -39,6 +39,7 @@
 .sentinel-copilot-window {
   width: 420px;
   height: 620px;
+  max-height: calc(100vh - 120px);
   border-radius: 16px;
   background: rgba(5, 7, 10, 0.85);
   backdrop-filter: blur(20px);
@@ -700,5 +701,6 @@
 .sentinel-presentation-mode .sentinel-copilot-window {
   width: 480px;
   height: 720px;
+  max-height: calc(100vh - 120px);
   bottom: 84px;
 }
