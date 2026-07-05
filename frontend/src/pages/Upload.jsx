@@ -77,9 +77,9 @@ export default function Upload() {
   };
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center p-6 text-gray-100 relative overflow-hidden bg-slate-950">
-      {/* LightPillar Background - Fill content area only */}
-      <div className="absolute inset-0 z-0 w-full h-full">
+    <div className="w-full min-h-screen flex flex-col items-center justify-center text-gray-100 relative bg-slate-950">
+      {/* Background Layer - Full viewport coverage */}
+      <div className="fixed inset-0 z-0 w-full h-screen pointer-events-none">
         <LightPillar
           topColor="#3B82F6"
           bottomColor="#1E40AF"
@@ -95,8 +95,11 @@ export default function Upload() {
         />
       </div>
 
+      {/* Dark Overlay - Improves readability */}
+      <div className="fixed inset-0 z-1 w-full h-screen bg-gradient-to-b from-black/20 via-black/10 to-black/20 pointer-events-none"></div>
+
       {/* Content Card - Centered on top */}
-      <div className="w-full max-w-2xl bg-slate-900/85 border border-slate-800 rounded-2xl p-8 shadow-2xl backdrop-blur-2xl relative z-10">
+      <div className="w-full max-w-2xl bg-slate-900/85 border border-slate-800 rounded-2xl p-8 shadow-2xl backdrop-blur-2xl relative z-10 m-6">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
             Upload Financial Statements
