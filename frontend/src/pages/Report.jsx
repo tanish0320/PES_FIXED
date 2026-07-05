@@ -115,7 +115,7 @@ export default function Report() {
     setExportDropdownOpen(false);
     try {
       const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${API_BASE}/investigation/${caseId}/report?format=excel`);
+      const response = await fetch(`${API_BASE}/investigation/${caseId}/report/excel`);
 
       if (!response.ok) {
         throw new Error(`Export failed: ${response.statusText}`);

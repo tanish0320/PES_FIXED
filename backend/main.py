@@ -26,6 +26,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
 )
 
 # Lazy import to avoid startup hang
@@ -162,7 +163,7 @@ def get_investigation_report(case_id: str, format: str = "json") -> Dict[str, An
             return StreamingResponse(
                 io.BytesIO(excel_bytes),
                 media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                headers={"Content-Disposition": f"attachment; filename=Sentinel_Investigation_{case_id}.xlsx"}
+                headers={"Content-Disposition": f'attachment; filename="Sentinel_Investigation_{case_id}.xlsx"'}
             )
         except Exception as e:
             import traceback
