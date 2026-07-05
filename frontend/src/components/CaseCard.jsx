@@ -51,7 +51,7 @@ const CaseCard = ({ caseData, onAnalyze }) => {
   };
 
   return (
-    <div 
+    <div
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => onAnalyze && onAnalyze(caseData)}
