@@ -29,8 +29,8 @@ app.add_middleware(
 )
 
 # Lazy import to avoid startup hang
-# from copilot.api import router as copilot_router
-# app.include_router(copilot_router)
+from copilot.api import router as copilot_router
+app.include_router(copilot_router)
 app.include_router(analytics_router)
 
 # Upload directory

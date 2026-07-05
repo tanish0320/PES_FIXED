@@ -30,15 +30,15 @@ class LLMClient(ABC):
 
 class OllamaClient(LLMClient):
     """
-    Ollama-based implementation of the LLMClient using a local Qwen3:8b model.
-    Disables chain-of-thought/thinking blocks explicitly with think=false.
+    Ollama-based implementation of the LLMClient using qwen2.5-coder:7b.
+    Configured to extract ONLY the final answer with NO thinking/reasoning blocks shown.
     """
 
     def __init__(self):
         self.host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-        self.model = os.getenv("OLLAMA_MODEL", "qwen3:8b")
-        self.timeout = 60.0 # 60 seconds timeout as requested
-        
+        self.model = os.getenv("OLLAMA_MODEL", "qwen2.5-coder:7b")
+        self.timeout = 90.0 # 90 seconds timeout for 7b model
+
         # Reuse HTTP client to avoid creating new connections on every request
         self.session = requests.Session()
 
@@ -75,6 +75,25 @@ class OllamaClient(LLMClient):
         combined += prompt.strip()
         return combined
 
+    def _strip_thinking_blocks(self, text: str) -> str:
+        """
+        Remove any thinking/reasoning blocks from the response.
+        Strips <think>...</think>, <reasoning>...</reasoning>, or similar tags.
+        Only returns the actual answer/output.
+        """
+        import re
+
+        # Remove thinking tags and their content
+        text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r'<reasoning>.*?</reasoning>', '', text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r'<analysis>.*?</analysis>', '', text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r'\*\*Thinking:?\*\*.*?\n\n', '', text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r'## Internal Reasoning.*?\n\n', '', text, flags=re.DOTALL | re.IGNORECASE)
+
+        # Clean up extra whitespace
+        text = '\n'.join(line for line in text.split('\n') if line.strip())
+        return text.strip()
+
     def generate(self, prompt: str, system_prompt: Optional[str] = None) -> str:
         """
         Non-streaming generation request to Ollama using /api/generate.
@@ -99,9 +118,11 @@ class OllamaClient(LLMClient):
 
             if res.status_code == 200:
                 response_text = res.json().get("response", "").strip()
+                # Filter out thinking blocks - only return the final answer
+                response_text = self._strip_thinking_blocks(response_text)
                 # Estimate token count (average ~4 characters per token)
                 token_count = len(response_text.split())
-                
+
                 print(f"[OLLAMA] Generate Success: Prompt Length={prompt_len}, Time={generation_time:.2f}s, Estimated Tokens={token_count}")
                 logger.info(f"Ollama generate success. Prompt length: {prompt_len}, Time: {generation_time:.2f}s, Tokens: {token_count}")
                 return response_text
@@ -119,6 +140,7 @@ class OllamaClient(LLMClient):
     def generate_stream(self, prompt: str, system_prompt: Optional[str] = None) -> Generator[str, None, None]:
         """
         Streaming generation request to Ollama using /api/generate.
+        Filters thinking blocks - only yields final answer tokens.
         """
         combined_prompt = self._combine_prompt(prompt, system_prompt)
         prompt_len = len(combined_prompt)
@@ -135,7 +157,8 @@ class OllamaClient(LLMClient):
 
         start_time = time.time()
         token_count = 0
-        
+        buffer = ""  # Buffer to accumulate tokens for thinking block detection
+
         try:
             res = self.session.post(f"{self.host}/api/generate", json=payload, stream=True, timeout=self.timeout)
             if res.status_code == 200:
@@ -145,8 +168,21 @@ class OllamaClient(LLMClient):
                             data = json.loads(line.decode('utf-8'))
                             token = data.get("response", "")
                             if token:
-                                token_count += 1
-                                yield token
+                                buffer += token
+                                # Check if we're in a thinking block
+                                if any(tag in buffer.lower() for tag in ['<think', '<reasoning', '<analysis']):
+                                    # Skip tokens while in thinking block
+                                    if '</think>' in buffer or '</reasoning>' in buffer or '</analysis>' in buffer:
+                                        # End of thinking block, extract and yield only non-thinking content
+                                        buffer = self._strip_thinking_blocks(buffer)
+                                        if buffer.strip():
+                                            token_count += 1
+                                            yield buffer
+                                        buffer = ""
+                                else:
+                                    # Normal token, yield it
+                                    token_count += 1
+                                    yield token
                         except json.JSONDecodeError:
                             continue
                 
