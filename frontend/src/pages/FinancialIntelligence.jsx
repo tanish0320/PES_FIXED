@@ -521,39 +521,39 @@ export default function FinancialIntelligence() {
                     </defs>
 
                     {/* Inflow box */}
-                    <rect x="50" y="120" width="140" height="160" fill="#dcfce7" stroke="#16a34a" strokeWidth="2" rx="8" />
-                    <text x="120" y="150" textAnchor="middle" className="text-sm font-bold" fill="#166534">INFLOW</text>
-                    <text x="120" y="245" textAnchor="middle" className="text-xs font-bold" fill="#16a34a">
+                    <rect x="50" y="120" width="140" height="160" fill="#1a3a1a" stroke="#22c55e" strokeWidth="2" rx="8" />
+                    <text x="120" y="150" textAnchor="middle" className="text-sm font-bold" fill="#86efac">INFLOW</text>
+                    <text x="120" y="245" textAnchor="middle" className="text-xs font-bold" fill="#22c55e">
                       {formatCurrency(selectedTrail.total_inflow)}
                     </text>
 
                     {/* Account circle */}
-                    <circle cx="400" cy="200" r="60" fill="#dbeafe" stroke="#3b82f6" strokeWidth="3" filter="url(#glow)" />
-                    <text x="400" y="190" textAnchor="middle" className="text-xs font-bold" fill="#0c4a6e">{selectedTrail.id.substring(0, 12)}</text>
-                    <text x="400" y="210" textAnchor="middle" className="text-xs font-bold" fill="#0c4a6e">ACCOUNT</text>
+                    <circle cx="400" cy="200" r="60" fill="#0f2d4a" stroke="#60a5fa" strokeWidth="3" filter="url(#glow)" />
+                    <text x="400" y="190" textAnchor="middle" className="text-xs font-bold" fill="#e0f2fe">{selectedTrail.id.substring(0, 12)}</text>
+                    <text x="400" y="210" textAnchor="middle" className="text-xs font-bold" fill="#e0f2fe">ACCOUNT</text>
 
                     {/* Outflow box */}
-                    <rect x="610" y="120" width="140" height="160" fill="#fee2e2" stroke="#dc2626" strokeWidth="2" rx="8" />
-                    <text x="680" y="150" textAnchor="middle" className="text-sm font-bold" fill="#991b1b">OUTFLOW</text>
-                    <text x="680" y="245" textAnchor="middle" className="text-xs font-bold" fill="#dc2626">
+                    <rect x="610" y="120" width="140" height="160" fill="#3a1a1a" stroke="#ef4444" strokeWidth="2" rx="8" />
+                    <text x="680" y="150" textAnchor="middle" className="text-sm font-bold" fill="#fca5a5">OUTFLOW</text>
+                    <text x="680" y="245" textAnchor="middle" className="text-xs font-bold" fill="#ef4444">
                       {formatCurrency(selectedTrail.total_outflow)}
                     </text>
 
                     {/* Arrows */}
-                    <line x1="190" y1="200" x2="340" y2="200" stroke="#16a34a" strokeWidth="3" markerEnd="url(#arrowInflow)" />
-                    <line x1="460" y1="200" x2="610" y2="200" stroke="#dc2626" strokeWidth="3" markerEnd="url(#arrowOutflow)" />
+                    <line x1="190" y1="200" x2="340" y2="200" stroke="#22c55e" strokeWidth="3" markerEnd="url(#arrowInflow)" />
+                    <line x1="460" y1="200" x2="610" y2="200" stroke="#ef4444" strokeWidth="3" markerEnd="url(#arrowOutflow)" />
 
                     {/* Labels */}
-                    <text x="265" y="190" textAnchor="middle" className="text-xs font-bold" fill="#16a34a">Receives</text>
-                    <text x="535" y="190" textAnchor="middle" className="text-xs font-bold" fill="#dc2626">Sends</text>
+                    <text x="265" y="190" textAnchor="middle" className="text-xs font-bold" fill="#22c55e">Receives</text>
+                    <text x="535" y="190" textAnchor="middle" className="text-xs font-bold" fill="#ef4444">Sends</text>
 
                     {/* Legend */}
                     <g transform="translate(50, 320)">
-                      <line x1="0" y1="0" x2="20" y2="0" stroke="#16a34a" strokeWidth="2" markerEnd="url(#arrowInflow)" />
-                      <text x="30" y="4" className="text-xs font-semibold" fill="#1e293b">Incoming Money (FIFO Receives First)</text>
+                      <line x1="0" y1="0" x2="20" y2="0" stroke="#22c55e" strokeWidth="2" markerEnd="url(#arrowInflow)" />
+                      <text x="30" y="4" className="text-xs font-semibold" fill="#e0e7ff">Incoming Money (FIFO Receives First)</text>
 
-                      <line x1="360" y1="0" x2="380" y2="0" stroke="#dc2626" strokeWidth="2" markerEnd="url(#arrowOutflow)" />
-                      <text x="390" y="4" className="text-xs font-semibold" fill="#1e293b">Outgoing Money (FIFO Sends First)</text>
+                      <line x1="360" y1="0" x2="380" y2="0" stroke="#ef4444" strokeWidth="2" markerEnd="url(#arrowOutflow)" />
+                      <text x="390" y="4" className="text-xs font-semibold" fill="#e0e7ff">Outgoing Money (FIFO Sends First)</text>
                     </g>
                   </svg>
                 </div>
@@ -636,10 +636,10 @@ export default function FinancialIntelligence() {
                   <svg viewBox="0 0 900 500" className="w-full h-96">
                     <defs>
                       <marker id="arrowForward" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-                        <polygon points="0 0, 10 3, 0 6" fill="#3b82f6" />
+                        <polygon points="0 0, 10 3, 0 6" fill="#60a5fa" />
                       </marker>
                       <marker id="arrowReturn" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-                        <polygon points="0 0, 10 3, 0 6" fill="#16a34a" />
+                        <polygon points="0 0, 10 3, 0 6" fill="#22c55e" />
                       </marker>
                       <filter id="glow">
                         <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
@@ -677,7 +677,7 @@ export default function FinancialIntelligence() {
                                   y1={pos.y}
                                   x2={nextPos.x - nodeRadius}
                                   y2={nextPos.y}
-                                  stroke={isLastEdge ? '#16a34a' : '#3b82f6'}
+                                  stroke={isLastEdge ? '#22c55e' : '#60a5fa'}
                                   strokeWidth="3"
                                   markerEnd={isLastEdge ? "url(#arrowReturn)" : "url(#arrowForward)"}
                                 />
@@ -687,8 +687,8 @@ export default function FinancialIntelligence() {
                                   y={pos.y - 30}
                                   width="80"
                                   height="28"
-                                  fill={isLastEdge ? '#dcfce7' : '#dbeafe'}
-                                  stroke={isLastEdge ? '#16a34a' : '#3b82f6'}
+                                  fill={isLastEdge ? '#1a3a1a' : '#0f2d4a'}
+                                  stroke={isLastEdge ? '#22c55e' : '#60a5fa'}
                                   strokeWidth="1"
                                   rx="4"
                                 />
@@ -697,7 +697,7 @@ export default function FinancialIntelligence() {
                                   y={pos.y - 10}
                                   textAnchor="middle"
                                   className="text-xs font-bold"
-                                  fill={isLastEdge ? '#166534' : '#0c4a6e'}
+                                  fill={isLastEdge ? '#22c55e' : '#e0f2fe'}
                                 >
                                   {selectedCycle.total_amount >= 1000000
                                     ? `₹${(selectedCycle.total_amount / 1000000).toFixed(1)}M`
@@ -715,14 +715,14 @@ export default function FinancialIntelligence() {
                                 cy={pos.y}
                                 r={nodeRadius}
                                 fill={
-                                  idx === 0 ? '#fee2e2' :
-                                  idx === positions.length - 1 ? '#dbeafe' :
-                                  '#f3f4f6'
+                                  idx === 0 ? '#3a1a1a' :
+                                  idx === positions.length - 1 ? '#0f2d4a' :
+                                  '#1e293b'
                                 }
                                 stroke={
-                                  idx === 0 ? '#dc2626' :
-                                  idx === positions.length - 1 ? '#3b82f6' :
-                                  '#9ca3af'
+                                  idx === 0 ? '#ef4444' :
+                                  idx === positions.length - 1 ? '#60a5fa' :
+                                  '#475569'
                                 }
                                 strokeWidth="3"
                               />
@@ -731,7 +731,7 @@ export default function FinancialIntelligence() {
                                 y={pos.y - 8}
                                 textAnchor="middle"
                                 className="text-xs font-bold"
-                                fill="#1e293b"
+                                fill="#e0e7ff"
                               >
                                 {pos.account.substring(0, 8)}
                               </text>
@@ -740,7 +740,7 @@ export default function FinancialIntelligence() {
                                 y={pos.y + 8}
                                 textAnchor="middle"
                                 className="text-xs"
-                                fill="#64748b"
+                                fill="#cbd5e1"
                               >
                                 {idx === 0 ? 'Start' : idx === positions.length - 1 ? 'End' : `Hop ${idx}`}
                               </text>
@@ -749,19 +749,19 @@ export default function FinancialIntelligence() {
 
                           {/* Legend */}
                           <g transform="translate(20, 420)">
-                            <text x="0" y="0" className="text-sm font-bold" fill="#1e293b">Legend:</text>
+                            <text x="0" y="0" className="text-sm font-bold" fill="#e0e7ff">Legend:</text>
 
-                            <line x1="0" y1="20" x2="20" y2="20" stroke="#3b82f6" strokeWidth="2" markerEnd="url(#arrowForward)" />
-                            <text x="30" y="24" className="text-xs" fill="#1e293b">Forward Flow</text>
+                            <line x1="0" y1="20" x2="20" y2="20" stroke="#60a5fa" strokeWidth="2" markerEnd="url(#arrowForward)" />
+                            <text x="30" y="24" className="text-xs" fill="#e0e7ff">Forward Flow</text>
 
-                            <line x1="150" y1="20" x2="170" y2="20" stroke="#16a34a" strokeWidth="2" markerEnd="url(#arrowReturn)" />
-                            <text x="180" y="24" className="text-xs" fill="#1e293b">Return Flow</text>
+                            <line x1="150" y1="20" x2="170" y2="20" stroke="#22c55e" strokeWidth="2" markerEnd="url(#arrowReturn)" />
+                            <text x="180" y="24" className="text-xs" fill="#e0e7ff">Return Flow</text>
 
-                            <circle cx="330" cy="20" r="6" fill="#fee2e2" stroke="#dc2626" strokeWidth="1" />
-                            <text x="345" y="24" className="text-xs" fill="#1e293b">Start Account</text>
+                            <circle cx="330" cy="20" r="6" fill="#3a1a1a" stroke="#ef4444" strokeWidth="1" />
+                            <text x="345" y="24" className="text-xs" fill="#e0e7ff">Start Account</text>
 
-                            <circle cx="520" cy="20" r="6" fill="#dbeafe" stroke="#3b82f6" strokeWidth="1" />
-                            <text x="535" y="24" className="text-xs" fill="#1e293b">End Account</text>
+                            <circle cx="520" cy="20" r="6" fill="#0f2d4a" stroke="#60a5fa" strokeWidth="1" />
+                            <text x="535" y="24" className="text-xs" fill="#e0e7ff">End Account</text>
                           </g>
                         </g>
                       );
