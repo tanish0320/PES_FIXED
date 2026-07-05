@@ -172,6 +172,14 @@ def get_investigation_report(case_id: str, format: str = "json") -> Dict[str, An
     # Default: JSON
     return report
 
+@app.get("/investigation/{case_id}/report/excel")
+def get_investigation_report_excel(case_id: str):
+    """
+    Direct endpoint for Excel report download.
+    Delegates to get_investigation_report with format='excel'.
+    """
+    return get_investigation_report(case_id, format="excel")
+
 @app.get("/stats")
 def get_investigation_stats() -> Dict[str, Any]:
     """

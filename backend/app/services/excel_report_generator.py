@@ -176,9 +176,19 @@ class ExcelReportGenerator:
             max_len = 0
             col_letter = get_column_letter(col[0].column)
             for cell in col:
-                # Skip merged range cells to prevent giant column sizing
-                if cell.coordinate in ws.merged_cells:
+                # Skip cells that are part of a merged range to prevent giant column sizing
+                is_merged = False
+                for merged_range in ws.merged_cells.ranges:
+                    if cell.coordinate in merged_range:
+                        # Skip if it is not the top-left cell, or if the merged range spans multiple columns
+                        min_col, min_row, max_col, max_row = merged_range.bounds
+                        top_left_coord = f"{get_column_letter(min_col)}{min_row}"
+                        if cell.coordinate != top_left_coord or min_col != max_col:
+                            is_merged = True
+                        break
+                if is_merged:
                     continue
+                
                 val_str = str(cell.value or '')
                 if len(val_str) > 50:
                     val_str = val_str[:50]
@@ -202,7 +212,6 @@ class ExcelReportGenerator:
         
         # Build worksheets in order
         cls._build_executive_summary(wb, case, report, transactions)
-        cls._build_dashboard(wb, report, transactions, graph)
         cls._build_investigation_summary(wb, report)
         cls._build_transactions(wb, transactions)
         cls._build_high_risk_transactions(wb, report)
@@ -214,6 +223,7 @@ class ExcelReportGenerator:
         cls._build_graph_statistics(wb, report, graph)
         cls._build_parser_statistics(wb, report)
         cls._build_recommendations(wb, report)
+        cls._build_dashboard(wb, report, transactions, graph) # Moved to 13th (after Recommendations)
         cls._build_uploaded_files(wb, case)
         cls._build_parser_summary(wb, report)
         cls._build_file_statistics(wb, case, transactions)
@@ -247,7 +257,6 @@ class ExcelReportGenerator:
             # Check sheet count and names
             required_sheets = [
                 "Executive Summary",
-                "Dashboard",
                 "Investigation Summary",
                 "Transactions",
                 "High Risk Transactions",
@@ -259,6 +268,7 @@ class ExcelReportGenerator:
                 "Graph Statistics",
                 "Parser Statistics",
                 "Recommendations",
+                "Dashboard",
                 "Uploaded Files",
                 "Parser Summary",
                 "File Statistics",
@@ -338,7 +348,27 @@ class ExcelReportGenerator:
         table_start = row
         for metric, val in metrics:
             ws.cell(row=row, column=1, value=metric).font = Font(name="Segoe UI", size=10, bold=True)
-            ws.cell(row=row, column=2, value=val)
+            cell_val = ws.cell(row=row, column=2, value=val)
+            
+            # Specific formatting based on metric type
+            if metric in ["Total Credits", "Total Debits"]:
+                if isinstance(val, (int, float)):
+                    cell_val.number_format = '"₹"#,##0.00'
+                elif val is not None:
+                    try:
+                        cell_val.value = float(val)
+                        cell_val.number_format = '"₹"#,##0.00'
+                    except ValueError:
+                        pass
+            elif metric == "Total Transactions":
+                if isinstance(val, int):
+                    cell_val.number_format = '#,##0'
+                elif val is not None:
+                    try:
+                        cell_val.value = int(val)
+                        cell_val.number_format = '#,##0'
+                    except ValueError:
+                        pass
             row += 1
             
         cls._apply_table_formatting(
@@ -346,9 +376,7 @@ class ExcelReportGenerator:
             start_row=table_start, 
             end_row=row-1, 
             start_col=1, 
-            end_col=2,
-            currency_cols=[2],
-            percentage_cols=[2]
+            end_col=2
         )
         
         # Risk Badge Styling
@@ -426,7 +454,14 @@ class ExcelReportGenerator:
             
             row += 1
             
-        cls._apply_table_formatting(ws, start_row=card_start, end_row=row-1, start_col=1, end_col=2)
+        cls._apply_table_formatting(
+            ws, 
+            start_row=card_start, 
+            end_row=row-1, 
+            start_col=1, 
+            end_col=2,
+            right_align_cols=[2]
+        )
         row += 2
         
         # 2. Risk Level Counts Table
@@ -732,8 +767,6 @@ class ExcelReportGenerator:
         # Headers
         headers = ["Pattern", "Severity", "Confidence", "Description", "Related Transactions", "Investigation Recommendation"]
         for col, header in enumerate(headers, 1):
-            cell = ws.cell(row=col, column=col) # Wait! This is a bug in the old code!ws.cell(row=col, column=col)? Yes!
-            # Let's fix this bug: ws.cell(row=row, column=col, value=header)
             cell = ws.cell(row=row, column=col, value=header)
             cls.apply_style(cell, **cls.create_header_style())
         row += 1
@@ -861,7 +894,7 @@ class ExcelReportGenerator:
         row = cls._write_entity_table(ws, "Identified Names / Account Holders", entities.get("names", []), row)
         row = cls._write_entity_table(ws, "Connected Accounts", entities.get("accounts", []), row)
         row = cls._write_entity_table(ws, "Extracted UPI IDs", entities.get("upi_ids", []), row)
-        row = cls._write_entity_table(ws, "Extracted IFSC Codes", entities.get("ifsc", []), row)
+        row = cls._write_entity_table(ws, "Extracted IFSC Codes", entities.get("ifsc_codes", entities.get("ifsc", [])), row)
         row = cls._write_entity_table(ws, "Identified Beneficiaries", entities.get("beneficiaries", []), row)
         row = cls._write_entity_table(ws, "Linked Merchants", entities.get("merchants", []), row)
         row = cls._write_entity_table(ws, "Associated Banks", entities.get("banks", []), row)
