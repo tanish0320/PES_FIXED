@@ -107,7 +107,7 @@ export default function GlobalAnalyticsDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-slate-400 text-sm">Total Volume</p>
-              <p className="text-2xl font-bold text-slate-100">₹{(summary.total_volume / 1000000000).toFixed(0)}B</p>
+              <p className="text-2xl font-bold text-slate-100">₹{(summary.total_volume / 1000).toFixed(0)}K</p>
             </div>
             <TrendingUp className="text-purple-500" size={32} />
           </div>
@@ -146,7 +146,7 @@ export default function GlobalAnalyticsDashboard() {
         </div>
         <div className="mt-4 p-4 bg-slate-800 border border-slate-700 rounded-lg">
           <p className="text-slate-300">
-            <strong>Total Volume in Cycles:</strong> ₹{(cycles.total_volume_in_cycles / 1000000).toFixed(1)}M
+            <strong>Total Volume in Cycles:</strong> ₹{(cycles.total_volume_in_cycles / 1000).toFixed(1)}K
           </p>
         </div>
       </div>
@@ -162,7 +162,7 @@ export default function GlobalAnalyticsDashboard() {
                 <p className="text-sm text-slate-400">{hub.transaction_count.toLocaleString()} transactions</p>
               </div>
               <div className="text-right">
-                <p className="text-lg font-bold text-slate-100">₹{(hub.volume / 1000000000).toFixed(1)}B</p>
+                <p className="text-lg font-bold text-slate-100">₹{(hub.volume / 1000).toFixed(1)}K</p>
                 <p className={`text-sm font-semibold ${
                   hub.risk_score >= 70 ? 'text-red-400' :
                   hub.risk_score >= 50 ? 'text-amber-400' :
