@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload as UploadIcon, FileText, CheckCircle, AlertTriangle, Play, Loader2 } from 'lucide-react';
 import { useDataStore } from '../hooks/useDataStore';
+import LightPillar from '../components/LightPillar';
 
 export default function Upload() {
   const navigate = useNavigate();
@@ -76,8 +77,25 @@ export default function Upload() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[85vh] p-6 text-gray-100">
-      <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl backdrop-blur-xl">
+    <div className="flex flex-col items-center justify-center min-h-[85vh] p-6 text-gray-100 relative overflow-hidden">
+      {/* LightPillar Background */}
+      <div className="fixed inset-0 z-0">
+        <LightPillar
+          topColor="#3B82F6"
+          bottomColor="#1E40AF"
+          intensity={0.6}
+          rotationSpeed={0.2}
+          glowAmount={0.004}
+          pillarWidth={2.5}
+          pillarHeight={0.35}
+          noiseIntensity={0.3}
+          interactive={false}
+          mixBlendMode="screen"
+          quality="high"
+        />
+      </div>
+
+      <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl backdrop-blur-xl relative z-10">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
             Upload Financial Statements
