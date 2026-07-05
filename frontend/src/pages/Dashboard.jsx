@@ -11,6 +11,7 @@ import {
   Tooltip, BarChart, Bar, Cell, PieChart, Pie, Legend
 } from 'recharts';
 import CaseCard from '../components/CaseCard';
+import BorderGlow from '../components/BorderGlow';
 import { 
   CategoryDrilldownDrawer, 
   TransactionDrilldownDrawer 
@@ -252,22 +253,31 @@ export default function Dashboard() {
           { label: 'Flagged Transactions', value: stats?.high_risk_transactions || 0, icon: ShieldAlert, color: 'text-amber-400' },
           { label: 'Total Volume Scanned', value: formatINR(stats?.total_volume), icon: TrendingUp, color: 'text-emerald-400', isLarge: true }
         ].map((kpi, i) => (
-          <div 
-            key={i} 
+          <BorderGlow
+            key={i}
             onClick={() => handleKpiClick(kpi.label)}
-            className={`bg-slate-900 hover:border-indigo-500/50 border border-slate-850 p-5 rounded-xl flex flex-col justify-between shadow-lg relative overflow-hidden cursor-pointer transition-all ${
+            borderRadius={12}
+            glowColor="225 100 65"
+            colors={['#3b82f6', '#6366f1', '#a855f7']}
+            backgroundColor="#0f172a"
+            glowRadius={25}
+            glowIntensity={1.2}
+            edgeSensitivity={30}
+            className={`cursor-pointer group ${
               kpi.isLarge ? 'col-span-2 md:col-span-1' : ''
             }`}
           >
-            <div className="flex justify-between items-start">
-              <span className="text-[10px] text-slate-500 uppercase font-black tracking-wider leading-snug">
-                {kpi.label}
-              </span>
-              <kpi.icon size={16} className={`${kpi.color} opacity-80`} />
+            <div className="p-5 flex flex-col justify-between h-full w-full">
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] text-slate-500 uppercase font-black tracking-wider leading-snug">
+                  {kpi.label}
+                </span>
+                <kpi.icon size={16} className={`${kpi.color} opacity-80`} />
+              </div>
+              <p className="text-xl font-black text-white mt-4 tracking-tight">{kpi.value}</p>
+              <span className="text-[8px] text-slate-600 block mt-2 font-bold uppercase tracking-wider">Click to drill down</span>
             </div>
-            <p className="text-xl font-black text-white mt-4 tracking-tight">{kpi.value}</p>
-            <span className="text-[8px] text-slate-600 block mt-2 font-bold uppercase tracking-wider">Click to drill down</span>
-          </div>
+          </BorderGlow>
         ))}
       </section>
 
