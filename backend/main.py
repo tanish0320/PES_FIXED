@@ -152,14 +152,21 @@ def get_investigation_report(case_id: str, format: str = "json") -> Dict[str, An
             logger.info("[API] Excel workbook generated successfully: {} bytes".format(len(excel_bytes)))
 
             # Return using Response with proper MIME type
-            filename = "Sentinel_Investigation_{}.xlsx".format(case_id)
+            # Use simple filename that's Windows/Excel compatible
+            safe_case_id = case_id.replace('/', '-').replace('\\', '-').replace('"', '').replace("'", '')
+            filename = "Sentinel_Investigation_{}.xlsx".format(safe_case_id)
 
+            # Create response with binary content
+            # Use simple Content-Disposition format for maximum compatibility
             response = Response(
                 content=excel_bytes,
                 media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 headers={
-                    "Content-Disposition": "attachment; filename=\"{}\"".format(filename),
-                    "Content-Length": str(len(excel_bytes))
+                    "Content-Disposition": "attachment; filename={}".format(filename),
+                    "Content-Length": str(len(excel_bytes)),
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0"
                 }
             )
 
