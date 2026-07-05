@@ -107,14 +107,22 @@ const Particles = ({
     const container = containerRef.current;
     if (!container) return;
 
-    const renderer = new Renderer({
-      dpr: pixelRatio,
-      depth: false,
-      alpha: true
-    });
-    const gl = renderer.gl;
-    container.appendChild(gl.canvas);
-    gl.clearColor(0, 0, 0, 0);
+    let renderer, gl, animationFrameId;
+
+    try {
+      renderer = new Renderer({
+        dpr: pixelRatio,
+        depth: false,
+        alpha: true
+      });
+      gl = renderer.gl;
+      if (!gl) return;
+      container.appendChild(gl.canvas);
+      gl.clearColor(0, 0, 0, 0);
+    } catch (e) {
+      console.warn('Particles: WebGL init failed, skipping.', e);
+      return;
+    }
 
     const camera = new Camera(gl, { fov: 15 });
     camera.position.set(0, 0, cameraDistance);
@@ -182,7 +190,6 @@ const Particles = ({
 
     const particles = new Mesh(gl, { mode: gl.POINTS, geometry, program });
 
-    let animationFrameId;
     let lastTime = performance.now();
     let elapsed = 0;
 
@@ -219,7 +226,7 @@ const Particles = ({
         container.removeEventListener('mousemove', handleMouseMove);
       }
       cancelAnimationFrame(animationFrameId);
-      if (container.contains(gl.canvas)) {
+      if (gl && container.contains(gl.canvas)) {
         container.removeChild(gl.canvas);
       }
     };
