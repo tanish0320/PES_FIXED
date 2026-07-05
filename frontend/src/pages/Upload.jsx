@@ -13,7 +13,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useDataStore } from '../hooks/useDataStore';
-import LightPillar from '../components/LightPillar';
+import Particles from '../components/Particles';
 
 export default function Upload() {
   const navigate = useNavigate();
@@ -139,20 +139,17 @@ export default function Upload() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[85vh] p-6 text-gray-100 relative overflow-hidden bg-slate-950">
-      {/* LightPillar Background - Only in Content Area */}
-      <div className="absolute inset-0 z-0 animate-pulse duration-[8000ms]">
-        <LightPillar
-          topColor="#1E40AF"
-          bottomColor="#0F172A"
-          intensity={0.4}
-          rotationSpeed={0.15}
-          glowAmount={0.003}
-          pillarWidth={3.0}
-          pillarHeight={0.4}
-          noiseIntensity={0.2}
-          interactive={false}
-          mixBlendMode="screen"
-          quality="high"
+      {/* Particles Background - Only in Content Area */}
+      <div className="absolute inset-0 z-0">
+        <Particles
+          particleColors={["#ffffff", "#3b82f6", "#60a5fa"]}
+          particleCount={250}
+          particleSpread={12}
+          speed={0.1}
+          particleBaseSize={80}
+          moveParticlesOnHover={true}
+          alphaParticles={true}
+          disableRotation={false}
         />
       </div>
 
