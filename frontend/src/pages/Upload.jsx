@@ -81,13 +81,13 @@ export default function Upload() {
       {/* Background Layer - Particles */}
       <div className="absolute inset-0 z-0 w-full h-full pointer-events-none">
         <Particles
-          particleCount={150}
+          particleCount={250}
           particleSpread={8}
           speed={0.05}
           particleColors={['#3B82F6', '#06B6D4', '#8B5CF6']}
           moveParticlesOnHover={false}
           alphaParticles={true}
-          particleBaseSize={80}
+          particleBaseSize={110}
           sizeRandomness={0.8}
           cameraDistance={18}
           disableRotation={false}
