@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import GraphCanvas from './GraphCanvas';
 import Legend from './Legend';
+import LayoutSwitcher from './LayoutSwitcher';
 import ActionPanel from './ActionPanel';
 import ReplayController from './ReplayController';
 import ReplayActionPanel from './ReplayActionPanel';
@@ -14,9 +15,9 @@ import './GraphModule.css';
 import { Calendar, X, GitBranch, Compass, ZoomIn, RefreshCw, FileText, ShieldAlert } from 'lucide-react';
 import { getRole } from '../../roleStore';
 import { maskAccount } from '../../utils/maskAccount';
-import { 
-  TransactionDrilldownDrawer, 
-  EntityIntelligencePanel 
+import {
+  TransactionDrilldownDrawer,
+  EntityIntelligencePanel
 } from '../../components/InvestigationDrawers';
 import RiskExplanationDrawer from '../../components/RiskExplanationDrawer';
 import { useCopilot } from '../../components/CopilotContext';
@@ -638,9 +639,19 @@ const GraphModule = ({ caseDetails }) => {
       
       {/* Graph Area */}
       <div className="flex-1 relative flex flex-col h-full min-w-0">
-        
+
         {/* Floating Legend - only visible in normal mode */}
         {!replayActive && <Legend />}
+
+        {/* Layout Switcher - only for large graphs (75+ nodes) */}
+        {!replayActive && (
+          <LayoutSwitcher
+            nodeCount={nodes?.length || 0}
+            onLayoutChange={(layoutName) => {
+              canvasRef.current?.changeLayout?.(layoutName);
+            }}
+          />
+        )}
 
         {/* Floating Risk Score & Confidence Animator - only visible in replay mode */}
         {replayActive && (

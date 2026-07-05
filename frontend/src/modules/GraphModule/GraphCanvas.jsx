@@ -129,25 +129,59 @@ const applyDashboardLayout = (cy, nodes, edges, container, animate) => {
   });
 };
 
-const layoutConfig = {
-  name: 'cose',
-  idealEdgeLength: 120,
-  nodeOverlap: 20,
-  refresh: 20,
-  fit: true,
-  padding: 50,
-  randomize: true,
-  componentSpacing: 100,
-  nodeRepulsion: 400000,
-  edgeElasticity: 100,
-  nestingFactor: 5,
-  gravity: 80,
-  numIter: 1000,
-  initialTemp: 200,
-  coolingFactor: 0.95,
-  minTemp: 1.0,
-  animate: true
+const getLayoutConfig = (layoutName) => {
+  const baseConfig = {
+    fit: true,
+    padding: 50,
+    animate: true,
+    animationDuration: 500,
+    animationEasing: 'ease-in-out-quad'
+  };
+
+  switch (layoutName) {
+    case 'breadthfirst':
+      return {
+        ...baseConfig,
+        name: 'breadthfirst',
+        directed: true,
+        roots: undefined,
+        spacingFactor: 1.5
+      };
+    case 'circle':
+      return {
+        ...baseConfig,
+        name: 'circle'
+      };
+    case 'concentric':
+      return {
+        ...baseConfig,
+        name: 'concentric',
+        concentric: (node) => node.data('risk') || 0,
+        levelWidth: () => 100
+      };
+    case 'cose':
+    default:
+      return {
+        ...baseConfig,
+        name: 'cose',
+        idealEdgeLength: 120,
+        nodeOverlap: 20,
+        refresh: 20,
+        randomize: true,
+        componentSpacing: 100,
+        nodeRepulsion: 400000,
+        edgeElasticity: 100,
+        nestingFactor: 5,
+        gravity: 80,
+        numIter: 1000,
+        initialTemp: 200,
+        coolingFactor: 0.95,
+        minTemp: 1.0
+      };
+  }
 };
+
+const layoutConfig = getLayoutConfig('cose');
 
 const isNodeInViewport = (cy, node) => {
   const rect = node.boundingBox();
@@ -691,6 +725,17 @@ const GraphCanvas = forwardRef(({
       }
     },
 
+    changeLayout: (layoutName) => {
+      const cy = cyRef.current;
+      if (!cy) return;
+
+      console.log('[Graph] Changing layout to:', layoutName);
+
+      const newLayoutConfig = getLayoutConfig(layoutName);
+      const layout = cy.layout(newLayoutConfig);
+
+      layout.run();
+    }
   }));
 
   // 1. Cytoscape setup
