@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { AlertCircle, TrendingUp, Activity, AlertTriangle, Loader, RefreshCw } from 'lucide-react';
 import { fetchGlobalAnalytics } from '../hooks/useFinancialIntelligenceStore';
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export default function GlobalAnalyticsDashboard() {
   const [analytics, setAnalytics] = useState(null);

@@ -126,11 +126,21 @@ class ReportGenerator:
         else:
             risk_indicator = "low anomaly profile"
 
-        exec_summary = (
-            f"The account exhibits {velocity_level} transaction velocity with an average holding time of only {holding_time}. "
-            f"Funds are rapidly distributed to {ben_count} beneficiaries while retaining only {retention_pct:.1f}% of incoming balances, "
-            f"indicating {risk_indicator} (overall investigation risk score is {int(risk_score)}/100, flagged as {risk_level.upper()})."
-        )
+        files_count = len(case.get("files_uploaded", []))
+        if files_count > 1:
+            exec_summary = (
+                f"The unified investigation correlates {files_count} bank statements. "
+                f"The merged network exhibits {velocity_level} transaction velocity with an average holding time of {holding_time}. "
+                f"Funds are routed to {ben_count} unique beneficiaries while retaining only {retention_pct:.1f}% of incoming balances, "
+                f"indicating {risk_indicator} across statements (overall risk score is {int(risk_score)}/100, flagged as {risk_level.upper()})."
+            )
+        else:
+            exec_summary = (
+                f"The account exhibits {velocity_level} transaction velocity with an average holding time of only {holding_time}. "
+                f"Funds are rapidly distributed to {ben_count} beneficiaries while retaining only {retention_pct:.1f}% of incoming balances, "
+                f"indicating {risk_indicator} (overall investigation risk score is {int(risk_score)}/100, flagged as {risk_level.upper()})."
+            )
+
 
         # Graph summary details
         nodes_list = graph.get("nodes", []) if graph else []
@@ -201,7 +211,8 @@ class ReportGenerator:
             "parser_statistics": parser_stats,
             "graph_summary": graph_summary,
             "recommended_next_steps": next_steps,
-            "financial_metrics": metrics
+            "financial_metrics": metrics,
+            "files_uploaded": case.get("files_uploaded", [])
         }
 
         return report

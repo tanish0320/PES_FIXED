@@ -56,30 +56,31 @@ def build_money_flow_graph(case_id: str, transactions: List[Dict[str, Any]], ent
     if not transactions:
         return {"nodes": [], "edges": []}
 
-    # Find the primary account ID (main account of statement)
-    # The statement parser sets sender_account or receiver_account to the main account ID
-    # depending on whether it is debit or credit.
-    # Let's count occurrences of non-external account IDs
-    account_counts = {}
+    # Find all primary accounts (any non-external accounts)
+    primary_accounts = set()
     for tx in transactions:
         for acc in [tx.get("sender_account"), tx.get("receiver_account")]:
             if acc and acc != "external":
-                account_counts[acc] = account_counts.get(acc, 0) + 1
-    
-    primary_acc = max(account_counts, key=account_counts.get) if account_counts else "primary_account"
-    primary_risk = 0.0
+                primary_accounts.add(acc)
+                
+    if not primary_accounts:
+        primary_accounts.add("primary_account")
+        
     case_data = store.get("cases", {}).get(case_id)
-    if case_data:
-        primary_risk = float(case_data.get("risk_score", 0.0))
+    case_risk = float(case_data.get("risk_score", 0.0)) if case_data else 0.0
 
     # Initialize graph
     store.setdefault("graphs", {})
     store["graphs"][case_id] = {"nodes": [], "edges": []}
 
-    # Calculate aggregates for the primary node
-    total_inflow = 0.0
-    total_outflow = 0.0
-    tx_count = len(transactions)
+    # Calculate aggregates for the primary nodes
+    primary_aggregates = {}
+    for acc in primary_accounts:
+        primary_aggregates[acc] = {
+            "total_inflow": 0.0,
+            "total_outflow": 0.0,
+            "tx_count": 0
+        }
 
     # Temporary aggregates for counterparty nodes
     counterparty_aggregates = {}
@@ -118,7 +119,7 @@ def build_money_flow_graph(case_id: str, transactions: List[Dict[str, Any]], ent
             if len(parts) > 3:
                 return parts[3].strip().title()
         
-        # General word cleanup
+        # Generic word cleanup
         words = [w for w in re.split(r'[/|\-,\s]+', desc_up) if w.isalpha() and len(w) > 3]
         words = [w for w in words if w not in ["TRANSFER", "UPI", "IMPS", "NEFT", "RTGS", "CASH", "WITHDRAWAL", "DEPOSIT"]]
         if words:
@@ -135,38 +136,58 @@ def build_money_flow_graph(case_id: str, transactions: List[Dict[str, Any]], ent
         date_str = tx.get("timestamp", "")
         desc = tx.get("description", "")
 
-        # Extract counterparty name/value
-        cp_val = clean_cp_name(desc)
-        cp_type = classify_counterparty(cp_val)
+        sender = tx.get("sender_account", "external")
+        receiver = tx.get("receiver_account", "external")
 
-        if is_debit:
-            total_outflow += amount
-            from_node = primary_acc
+        # Determine from and to nodes
+        if sender in primary_accounts and receiver in primary_accounts:
+            from_node = sender
+            to_node = receiver
+            if sender in primary_aggregates:
+                primary_aggregates[sender]["tx_count"] += 1
+            if receiver in primary_aggregates:
+                primary_aggregates[receiver]["tx_count"] += 1
+        elif sender in primary_accounts:
+            from_node = sender
+            cp_val = clean_cp_name(desc)
             to_node = cp_val
-        else:
-            total_inflow += amount
+            if sender in primary_aggregates:
+                primary_aggregates[sender]["tx_count"] += 1
+                primary_aggregates[sender]["total_outflow"] += amount
+        elif receiver in primary_accounts:
+            to_node = receiver
+            cp_val = clean_cp_name(desc)
             from_node = cp_val
-            to_node = primary_acc
+            if receiver in primary_aggregates:
+                primary_aggregates[receiver]["tx_count"] += 1
+                primary_aggregates[receiver]["total_inflow"] += amount
+        else:
+            cp_val = clean_cp_name(desc)
+            from_node = cp_val
+            to_node = "external"
 
         # Track counterparty details
-        if cp_val not in counterparty_aggregates:
-            counterparty_aggregates[cp_val] = {
-                "account_id": cp_val,
-                "node_type": cp_type,
-                "label": cp_val,
-                "risk": 40.0 if cp_type in ["upi_id", "person"] else 20.0, # base risk for counterparties
-                "status": "suspicious" if cp_type in ["upi_id", "person"] else "active",
-                "tx_count": 0,
-                "total_inflow": 0.0,
-                "total_outflow": 0.0
-            }
-        
-        cp_agg = counterparty_aggregates[cp_val]
-        cp_agg["tx_count"] += 1
-        if is_debit:
-            cp_agg["total_inflow"] += amount # Outflow from primary is inflow to counterparty
-        else:
-            cp_agg["total_outflow"] += amount
+        for node_id in [from_node, to_node]:
+            if node_id not in primary_accounts and node_id != "external":
+                cp_val = node_id
+                cp_type = classify_counterparty(cp_val)
+                if cp_val not in counterparty_aggregates:
+                    counterparty_aggregates[cp_val] = {
+                        "account_id": cp_val,
+                        "node_type": cp_type,
+                        "label": cp_val,
+                        "risk": 40.0 if cp_type in ["upi_id", "person"] else 20.0,
+                        "status": "suspicious" if cp_type in ["upi_id", "person"] else "active",
+                        "tx_count": 0,
+                        "total_inflow": 0.0,
+                        "total_outflow": 0.0
+                    }
+                cp_agg = counterparty_aggregates[cp_val]
+                cp_agg["tx_count"] += 1
+                if node_id == to_node:
+                    cp_agg["total_inflow"] += amount
+                else:
+                    cp_agg["total_outflow"] += amount
 
         # Add Edge
         edge_data = {
@@ -182,33 +203,38 @@ def build_money_flow_graph(case_id: str, transactions: List[Dict[str, Any]], ent
 
     # Determine primary account holder name
     holder_names = [n["value"] for n in entities.get("names", [])]
-    holder_label = f"{holder_names[0]} (Owner)" if holder_names else f"Account {primary_acc}"
-
+    
     # Retrieve metrics for primary node
-    avg_holding = metrics["account_metrics"]["average_holding_time"]["value"]
-    retention_pct = metrics["account_metrics"]["balance_retention_percent"]["value"]
-    ben_count = metrics["account_metrics"]["unique_beneficiaries"]["value"]
-    velocity_val = metrics["transaction_metrics"]["transaction_velocity"]["value"]
+    avg_holding = metrics["account_metrics"]["average_holding_time"]["value"] if metrics else "N/A"
+    retention_pct = metrics["account_metrics"]["balance_retention_percent"]["value"] if metrics else 0.0
+    ben_count = metrics["account_metrics"]["unique_beneficiaries"]["value"] if metrics else 0
+    velocity_val = metrics["transaction_metrics"]["transaction_velocity"]["value"] if metrics else {}
     tx_per_day = velocity_val.get("tx_per_day", 0.0) if isinstance(velocity_val, dict) else 0.0
 
-    # Add Primary Account Node
-    primary_node = {
-        "account_id": primary_acc,
-        "node_type": "account",
-        "label": holder_label,
-        "risk": primary_risk,
-        "status": "suspicious" if primary_risk >= 60 else "active",
-        "tx_count": tx_count,
-        "total_inflow": total_inflow,
-        "total_outflow": total_outflow,
-        "average_holding_time": str(avg_holding),
-        "money_retention": f"{retention_pct:.1f}%" if isinstance(retention_pct, (int, float)) else "0.0%",
-        "beneficiary_count": int(ben_count),
-        "velocity": f"{tx_per_day:.1f} tx/day",
-        "risk_contribution": f"{primary_risk:.0f}%",
-        "connected_transactions": int(tx_count)
-    }
-    add_node(case_id, primary_node, store)
+    # Add Primary Account Nodes
+    for acc in primary_accounts:
+        acc_agg = primary_aggregates[acc]
+        holder_label = f"Account {acc}"
+        if holder_names:
+            holder_label = f"{holder_names[0]} (Owner)" if len(primary_accounts) == 1 else f"{holder_names[0]} ({acc})"
+
+        primary_node = {
+            "account_id": acc,
+            "node_type": "account",
+            "label": holder_label,
+            "risk": case_risk,
+            "status": "suspicious" if case_risk >= 60 else "active",
+            "tx_count": acc_agg["tx_count"],
+            "total_inflow": acc_agg["total_inflow"],
+            "total_outflow": acc_agg["total_outflow"],
+            "average_holding_time": str(avg_holding),
+            "money_retention": f"{retention_pct:.1f}%" if isinstance(retention_pct, (int, float)) else "0.0%",
+            "beneficiary_count": int(ben_count),
+            "velocity": f"{tx_per_day:.1f} tx/day",
+            "risk_contribution": f"{case_risk:.0f}%",
+            "connected_transactions": int(acc_agg["tx_count"])
+        }
+        add_node(case_id, primary_node, store)
 
     # Add Counterparty Nodes
     for cp_node in counterparty_aggregates.values():
@@ -227,9 +253,5 @@ def build_money_flow_graph(case_id: str, transactions: List[Dict[str, Any]], ent
             "connected_transactions": int(cp_node["tx_count"])
         })
         add_node(case_id, cp_node, store)
-
-    # We are no longer adding orphan entity nodes (banks, upi_ids, merchants) 
-    # to the graph if they are not actual counterparties, 
-    # to prevent clutter and perceived cross-statement data leakage.
 
     return get_graph(case_id, store)

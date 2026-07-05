@@ -114,7 +114,7 @@ export default function Report() {
   const handleExportExcel = async () => {
     setExportDropdownOpen(false);
     try {
-      const API_BASE = import.meta.env.VITE_API_URL || '';
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       const response = await fetch(`${API_BASE}/investigation/${caseId}/report?format=excel`);
 
       if (!response.ok) {
@@ -526,6 +526,47 @@ export default function Report() {
           {executiveBriefText}
         </p>
       </section>
+
+      {/* UPLOADED STATEMENTS LIST (for Multi-Statement Investigations) */}
+      {report.files_uploaded && report.files_uploaded.length > 0 && (
+        <section className="bg-slate-900/40 border border-slate-850 p-6 rounded-2xl space-y-4">
+          <h2 className="text-xs uppercase font-black tracking-widest text-slate-400 flex items-center gap-1.5">
+            <FileText size={14} className="text-indigo-400" /> Correlated Bank Statements ({report.files_uploaded.length})
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {report.files_uploaded.map((f, i) => (
+              <div 
+                key={i}
+                className="flex items-center justify-between p-4 bg-slate-950/40 border border-slate-800/80 rounded-xl"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2 bg-slate-800 text-slate-400 rounded-lg">
+                    <FileText size={16} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-200 truncate">{f.filename}</p>
+                    <p className="text-[10px] text-slate-500 font-mono mt-0.5">Account: {f.account_id || 'N/A'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase border ${
+                    f.status === 'SUCCESS' 
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                      : 'bg-red-500/10 text-red-400 border-red-500/20'
+                  }`}>
+                    {f.status}
+                  </span>
+                  {f.status === 'SUCCESS' && (
+                    <span className="text-[10px] font-bold text-slate-400">
+                      {f.rows_parsed} rows ({Math.round(f.confidence)}%)
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* KEY FINDINGS PANEL (Feature 8) */}
       {keyFindings && (

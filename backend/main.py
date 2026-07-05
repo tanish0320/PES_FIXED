@@ -1,13 +1,13 @@
 import os
 import shutil
-from typing import Any, List, Dict
+from typing import Any, List, Dict, Optional
 from fastapi import FastAPI, UploadFile, File, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from app.core.data_store import data_store
 # Lazy import to avoid startup hang
-from app.services.orchestrator import process_statement
+from app.services.orchestrator import process_statement, process_statements
 # from app.engines.cross_statement_intelligence import CrossStatementIntelligenceEngine
 from app.analytics.analytics_api import router as analytics_router, cache, compute_global_analytics
 from app.analytics.bulk_loader import ingest_file
@@ -42,30 +42,51 @@ def health_check() -> dict[str, str]:
     return {"status": "ok", "message": "Sentinel Investigation Workstation is healthy"}
 
 @app.post("/upload")
-async def upload_statement(file: UploadFile = File(...)):
+async def upload_statement(
+    file: Optional[UploadFile] = None,
+    files: Optional[List[UploadFile]] = None
+):
     """
-    Accepts an uploaded bank statement (.pdf, .csv, .xlsx, .xls, .txt), 
-    runs the full analysis pipeline, and returns case details.
+    Accepts one or more uploaded bank statements (.pdf, .csv, .xlsx, .xls, .txt),
+    runs the full multi-statement analysis pipeline, and returns unified case details.
     """
-    # Save statement to disk
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    uploaded_files = []
+    if file:
+        uploaded_files.append(file)
+    if files:
+        uploaded_files.extend(files)
+        
+    if not uploaded_files:
+        raise HTTPException(status_code=400, detail="No bank statement files uploaded.")
+        
+    file_paths = []
+    filenames = []
+    
+    for f in uploaded_files:
+        file_path = os.path.join(UPLOAD_DIR, f.filename)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(f.file, buffer)
+        file_paths.append(file_path)
+        filenames.append(f.filename)
         
     try:
-        result = process_statement(file_path, file.filename, data_store)
+        result = process_statements(file_paths, filenames, data_store)
 
         # Analytics (Global Financial Intelligence Engine) — additive, non-blocking
-        try:
-            ingest_file(file_path)
-        except Exception as analytics_err:
-            print(f"[analytics] non-fatal ingestion error: {analytics_err}")
+        for f_info in result.get("case", {}).get("files_uploaded", []):
+            if f_info.get("status") == "SUCCESS":
+                f_path = os.path.join(UPLOAD_DIR, f_info["filename"])
+                try:
+                    ingest_file(f_path)
+                except Exception as analytics_err:
+                    print(f"[analytics] non-fatal ingestion error for {f_info['filename']}: {analytics_err}")
 
         return result
     except Exception as e:
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Failed to analyze statement: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to analyze bank statements: {str(e)}")
+
 
 @app.get("/investigations")
 def get_investigations() -> List[Dict[str, Any]]:

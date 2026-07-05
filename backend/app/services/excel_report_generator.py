@@ -12,72 +12,56 @@ Architecture:
 - Investigator-ready workbook structure
 """
 
+import io
+import os
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-from openpyxl import Workbook
-from openpyxl.styles import (
-    Font, PatternFill, Alignment, Border, Side,
-    numbers
-)
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
-from openpyxl.worksheet.table import Table, TableStyleInfo
-
+from openpyxl.chart import BarChart, Reference
 
 class ExcelReportGenerator:
     """Generates professional Excel investigation reports from report JSON."""
 
     # Color palette (dark blue, grey, reds, etc.)
     COLORS = {
-        "header_bg": "1F4E78",  # Dark blue
+        "header_bg": "1B365D",    # Dark Navy Blue
         "header_text": "FFFFFF",  # White
-        "section_bg": "DCE6F1",  # Light blue
-        "critical_risk": "FF4444",  # Red
-        "high_risk": "FF9944",  # Orange
-        "medium_risk": "FFDD44",  # Yellow
-        "low_risk": "44DD44",  # Green
-        "row_alt1": "F5F5F5",  # Light grey
-        "row_alt2": "FFFFFF",  # White
-        "border": "CCCCCC",  # Light grey border
+        "section_bg": "F1F5F9",  # Slate light grey
+        "critical_risk": "9C0006",  # Dark Red
+        "critical_text": "FFC7CE",  # Light Red Text
+        "high_risk": "EA580C",      # Orange
+        "high_text": "FFEDD5",      # Light Orange Text
+        "medium_risk": "D97706",    # Yellow-Amber
+        "medium_text": "FEF3C7",    # Light Yellow Text
+        "low_risk": "16A34A",       # Green
+        "low_text": "DCFCE7",       # Light Green Text
+        "row_alt1": "F8FAFC",      # Alternating row color 1 (very light grey/slate)
+        "row_alt2": "FFFFFF",      # Alternating row color 2 (white)
+        "border": "CBD5E1",        # Border color (slate-300)
+        "card_bg": "F8FAFC",       # Card background
+        "title_color": "1E293B"    # Dark grey for titles
     }
 
-    RISK_LEVELS = {
-        "CRITICAL": COLORS["critical_risk"],
-        "HIGH": COLORS["high_risk"],
-        "MEDIUM": COLORS["medium_risk"],
-        "LOW": COLORS["low_risk"],
+    RISK_COLORS = {
+        "CRITICAL": (COLORS["critical_risk"], "FFFFFF"),
+        "HIGH": (COLORS["high_risk"], "FFFFFF"),
+        "MEDIUM": (COLORS["medium_risk"], "FFFFFF"),
+        "LOW": (COLORS["low_risk"], "FFFFFF"),
     }
 
     @staticmethod
-    def format_inr(value: float) -> str:
-        """Format number as Indian Rupees."""
-        try:
-            val_int = int(value)
-            s = str(val_int)
-            if len(s) <= 3:
-                return f"₹{s}"
-            last_three = s[-3:]
-            other_parts = s[:-3]
-            groups = []
-            while other_parts:
-                groups.append(other_parts[-2:])
-                other_parts = other_parts[:-2]
-            groups.reverse()
-            formatted = ",".join(groups) + "," + last_three
-            return f"₹{formatted}"
-        except Exception:
-            return f"₹{value:,.2f}"
-
-    @staticmethod
-    def get_risk_color(level: str) -> str:
-        """Get color code for risk level."""
+    def get_risk_styles(level: str) -> tuple:
+        """Get background and text color for risk level."""
         level_upper = str(level).upper()
-        return ExcelReportGenerator.RISK_LEVELS.get(level_upper, ExcelReportGenerator.COLORS["low_risk"])
+        return ExcelReportGenerator.RISK_COLORS.get(level_upper, (ExcelReportGenerator.COLORS["low_risk"], "FFFFFF"))
 
     @staticmethod
     def create_header_style() -> Dict[str, Any]:
         """Create header cell style."""
         return {
-            "font": Font(name="Calibri", size=11, bold=True, color=ExcelReportGenerator.COLORS["header_text"]),
+            "font": Font(name="Segoe UI", size=11, bold=True, color=ExcelReportGenerator.COLORS["header_text"]),
             "fill": PatternFill(start_color=ExcelReportGenerator.COLORS["header_bg"], end_color=ExcelReportGenerator.COLORS["header_bg"], fill_type="solid"),
             "alignment": Alignment(horizontal="center", vertical="center", wrap_text=True),
             "border": Border(
@@ -103,275 +87,578 @@ class ExcelReportGenerator:
             cell.number_format = styles["number_format"]
 
     @classmethod
-    def generate(cls, case: Dict[str, Any], report: Dict[str, Any], transactions: List[Dict[str, Any]]) -> bytes:
+    def _add_sheet_title(cls, ws, title_text: str):
+        """Add a professional sheet title with back link on row 2."""
+        # Row 1: Back Link (only if not Executive Summary)
+        if ws.title != "Executive Summary":
+            back_cell = ws.cell(row=1, column=1)
+            back_cell.value = "← Back to Executive Summary"
+            back_cell.hyperlink = "#'Executive Summary'!A1"
+            back_cell.font = Font(name="Segoe UI", size=10, bold=True, italic=True, underline="single", color="1B365D")
+            back_cell.alignment = Alignment(horizontal="left", vertical="center")
+            ws.row_dimensions[1].height = 20
+
+        # Row 2: Sheet Title
+        title_cell = ws.cell(row=2, column=1)
+        title_cell.value = title_text
+        title_cell.font = Font(name="Segoe UI", size=16, bold=True, color=cls.COLORS["header_bg"])
+        title_cell.alignment = Alignment(horizontal="left", vertical="center")
+        ws.row_dimensions[2].height = 30
+        ws.row_dimensions[3].height = 10  # blank spacer row
+
+    @classmethod
+    def _apply_table_formatting(cls, ws, start_row: int, end_row: int, start_col: int, end_col: int,
+                                right_align_cols: List[int] = None, center_align_cols: List[int] = None,
+                                currency_cols: List[int] = None, percentage_cols: List[int] = None):
+        """Standardized table cell formatting with zebra striping and borders."""
+        thin_border = Border(
+            left=Side(style="thin", color=cls.COLORS["border"]),
+            right=Side(style="thin", color=cls.COLORS["border"]),
+            top=Side(style="thin", color=cls.COLORS["border"]),
+            bottom=Side(style="thin", color=cls.COLORS["border"])
+        )
+        
+        for r in range(start_row, end_row + 1):
+            is_alt = (r % 2 == 0)
+            fill_color = cls.COLORS["row_alt1"] if is_alt else cls.COLORS["row_alt2"]
+            fill = PatternFill(start_color=fill_color, end_color=fill_color, fill_type="solid")
+            
+            for c in range(start_col, end_col + 1):
+                cell = ws.cell(row=r, column=c)
+                
+                # Apply standard font
+                if not cell.font or cell.font.name != "Segoe UI":
+                    cell.font = Font(name="Segoe UI", size=10)
+                
+                # Apply alternating fill if no fill exists
+                if cell.fill.fill_type is None:
+                    cell.fill = fill
+                
+                # Apply border
+                cell.border = thin_border
+                
+                # Alignments
+                if right_align_cols and c in right_align_cols:
+                    cell.alignment = Alignment(horizontal="right", vertical="center")
+                elif center_align_cols and c in center_align_cols:
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+                else:
+                    cell.alignment = Alignment(horizontal="left", vertical="center")
+                    
+                # Formats
+                if currency_cols and c in currency_cols:
+                    if isinstance(cell.value, (int, float)):
+                        cell.number_format = '"₹"#,##0.00'
+                    elif cell.value is not None:
+                        try:
+                            cell.value = float(cell.value)
+                            cell.number_format = '"₹"#,##0.00'
+                        except ValueError:
+                            pass
+                elif percentage_cols and c in percentage_cols:
+                    if isinstance(cell.value, (int, float)):
+                        cell.number_format = '0.0%'
+                    elif cell.value is not None:
+                        try:
+                            val_str = str(cell.value).strip()
+                            if val_str.endswith("%"):
+                                cell.value = float(val_str.replace("%", "")) / 100.0
+                            else:
+                                cell.value = float(val_str)
+                            cell.number_format = '0.0%'
+                        except ValueError:
+                            pass
+
+    @classmethod
+    def _auto_fit_columns(cls, ws):
+        """Fit columns dynamically based on max value length."""
+        for col in ws.columns:
+            max_len = 0
+            col_letter = get_column_letter(col[0].column)
+            for cell in col:
+                # Skip merged range cells to prevent giant column sizing
+                if cell.coordinate in ws.merged_cells:
+                    continue
+                val_str = str(cell.value or '')
+                if len(val_str) > 50:
+                    val_str = val_str[:50]
+                if len(val_str) > max_len:
+                    max_len = len(val_str)
+            ws.column_dimensions[col_letter].width = max(max_len + 3, 11)
+
+    @classmethod
+    def generate(cls, case: Dict[str, Any], report: Dict[str, Any], transactions: List[Dict[str, Any]], graph: Optional[Dict[str, Any]] = None) -> bytes:
         """
-        Generate Excel workbook from report JSON.
-
-        Args:
-            case: Case metadata (account_id, risk_score, etc.)
-            report: Generated investigation report
-            transactions: List of transactions
-
-        Returns:
-            Bytes of Excel workbook
+        Generate Excel workbook from report JSON and validate.
         """
         wb = Workbook()
-        ws = wb.active
-        ws.title = "Executive Summary"
-
-        case_id = case.get("account_id", "UNKNOWN")
-
+        
+        # Remove default sheet to maintain order
+        default_sheet = wb.active
+        wb.remove(default_sheet)
+        
+        # Ensure graph is present
+        graph = graph or {"nodes": [], "edges": []}
+        
         # Build worksheets in order
-        cls._build_executive_summary(wb, case, report)
+        cls._build_executive_summary(wb, case, report, transactions)
+        cls._build_dashboard(wb, report, transactions, graph)
         cls._build_investigation_summary(wb, report)
         cls._build_transactions(wb, transactions)
         cls._build_high_risk_transactions(wb, report)
         cls._build_detected_patterns(wb, report)
-        cls._build_money_flow(wb, report)
+        cls._build_money_flow(wb, report, graph)
         cls._build_entities(wb, report)
         cls._build_timeline(wb, report)
         cls._build_beneficiaries(wb, report)
-        cls._build_graph_statistics(wb, report)
+        cls._build_graph_statistics(wb, report, graph)
         cls._build_parser_statistics(wb, report)
         cls._build_recommendations(wb, report)
-
+        cls._build_uploaded_files(wb, case)
+        cls._build_parser_summary(wb, report)
+        cls._build_file_statistics(wb, case, transactions)
+        cls._build_cross_file_links(wb, case, transactions)
+        cls._build_shared_entities(wb, report)
+        
+        # Set Workbook Metadata
+        wb.properties.title = f"SENTINEL Forensic Investigation Workbook - Case {case.get('account_id', 'Unknown')}"
+        wb.properties.creator = "SENTINEL AI Forensic Engine"
+        wb.properties.subject = "Forensic Bank Statement Analysis"
+        wb.properties.lastModifiedBy = "SENTINEL System"
+        
         # Save to bytes
         import io
         output = io.BytesIO()
         wb.save(output)
-        output.seek(0)
-        return output.getvalue()
+        excel_data = output.getvalue()
+        
+        # Mandatory Validation
+        cls.validate_generated_bytes(excel_data)
+        
+        return excel_data
 
     @classmethod
-    def _build_executive_summary(cls, wb: Workbook, case: Dict[str, Any], report: Dict[str, Any]):
+    def validate_generated_bytes(cls, excel_data: bytes) -> bool:
+        """Validate generated Excel bytes to ensure zero corruption."""
+        import io
+        try:
+            wb = load_workbook(io.BytesIO(excel_data))
+            
+            # Check sheet count and names
+            required_sheets = [
+                "Executive Summary",
+                "Dashboard",
+                "Investigation Summary",
+                "Transactions",
+                "High Risk Transactions",
+                "Detected Patterns",
+                "Money Flow",
+                "Extracted Entities",
+                "Timeline",
+                "Beneficiaries",
+                "Graph Statistics",
+                "Parser Statistics",
+                "Recommendations",
+                "Uploaded Files",
+                "Parser Summary",
+                "File Statistics",
+                "Cross File Links",
+                "Shared Entities"
+            ]
+            sheet_names = wb.sheetnames
+            for sheet in required_sheets:
+                if sheet not in sheet_names:
+                    raise ValueError(f"Missing required sheet: {sheet}")
+            
+            # Check sheet names for invalid chars
+            seen = set()
+            for name in sheet_names:
+                if name.lower() in seen:
+                    raise ValueError(f"Duplicate sheet name: {name}")
+                seen.add(name.lower())
+                
+                for char in ['*', ':', '?', '/', '\\', '[', ']']:
+                    if char in name:
+                        raise ValueError(f"Invalid char '{char}' in sheet '{name}'")
+                
+                if len(name) > 31:
+                    raise ValueError(f"Sheet name '{name}' is too long")
+            
+            wb.close()
+            return True
+        except Exception as e:
+            raise ValueError(f"Excel validation failed: {str(e)}")
+
+    @classmethod
+    def _build_executive_summary(cls, wb: Workbook, case: Dict[str, Any], report: Dict[str, Any], transactions: List[Dict[str, Any]]):
         """Build Executive Summary sheet."""
-        ws = wb.active
-
-        # Title
-        ws.merge_cells("A1:D1")
-        title = ws["A1"]
-        title.value = f"SENTINEL Investigation Report"
-        title.font = Font(name="Calibri", size=16, bold=True, color=cls.COLORS["header_text"])
-        title.fill = PatternFill(start_color=cls.COLORS["header_bg"], end_color=cls.COLORS["header_bg"], fill_type="solid")
-        title.alignment = Alignment(horizontal="center", vertical="center")
-        ws.row_dimensions[1].height = 25
-
-        # Subtitle
-        ws.merge_cells("A2:D2")
-        subtitle = ws["A2"]
-        subtitle.value = f"Case ID: {case.get('account_id', 'N/A')}"
-        subtitle.font = Font(name="Calibri", size=11, color=cls.COLORS["header_text"])
-        subtitle.fill = PatternFill(start_color=cls.COLORS["section_bg"], end_color=cls.COLORS["section_bg"], fill_type="solid")
-        subtitle.alignment = Alignment(horizontal="center", vertical="center")
-        ws.row_dimensions[2].height = 20
+        ws = wb.create_sheet("Executive Summary")
+        cls._add_sheet_title(ws, "Executive Summary")
 
         row = 4
-
-        # Key Metrics
-        headers = ["Metric", "Value"]
-        for col, header in enumerate(headers, 1):
-            cell = ws.cell(row, col)
-            cell.value = header
-            cls.apply_style(cell, **cls.create_header_style())
+        
+        # Section Header: Case Details
+        ws.cell(row=row, column=1, value="Case Information").font = Font(name="Segoe UI", size=12, bold=True, color=cls.COLORS["header_bg"])
         row += 1
+        
+        # Parse statement dates from transactions
+        stmt_period = "N/A"
+        if transactions:
+            parsed_dates = []
+            for tx in transactions:
+                d = tx.get("date")
+                if isinstance(d, datetime):
+                    parsed_dates.append(d.date())
+                elif isinstance(d, str):
+                    try:
+                        parsed_dates.append(datetime.strptime(d[:10], "%Y-%m-%d").date())
+                    except Exception:
+                        pass
+            if parsed_dates:
+                stmt_period = f"{min(parsed_dates)} to {max(parsed_dates)}"
+
+        risk_score = case.get("risk_score", report.get("investigation_risk", {}).get("score", 0))
+        risk_level = case.get("risk_level", report.get("investigation_risk", {}).get("level", "LOW")).upper()
+        parser_stats = report.get("parser_statistics", {})
+        money_flow = report.get("money_flow_summary", {})
 
         metrics = [
             ("Case ID", case.get("account_id", "N/A")),
             ("Account Holder", case.get("holder_name", "Unknown")),
-            ("Risk Score", f"{case.get('risk_score', 0):.0f}%"),
-            ("Risk Level", case.get("risk_level", "LOW").upper()),
-            ("Generated", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+            ("Risk Score", f"{risk_score:.0f}%"),
+            ("Risk Level", risk_level),
+            ("Statement Period", stmt_period),
+            ("Parser Confidence", f"{parser_stats.get('parser_confidence', 0.0):.1f}%"),
+            ("Total Transactions", parser_stats.get("rows_parsed", len(transactions))),
+            ("Total Credits", money_flow.get("total_inflow", 0.0)),
+            ("Total Debits", money_flow.get("total_outflow", 0.0)),
+            ("Export Timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
         ]
 
-        for metric, value in metrics:
-            ws.cell(row, 1).value = metric
-            ws.cell(row, 1).font = Font(bold=True)
-            ws.cell(row, 2).value = value
+        table_start = row
+        for metric, val in metrics:
+            ws.cell(row=row, column=1, value=metric).font = Font(name="Segoe UI", size=10, bold=True)
+            ws.cell(row=row, column=2, value=val)
             row += 1
+            
+        cls._apply_table_formatting(
+            ws, 
+            start_row=table_start, 
+            end_row=row-1, 
+            start_col=1, 
+            end_col=2,
+            currency_cols=[2],
+            percentage_cols=[2]
+        )
+        
+        # Risk Badge Styling
+        for r in range(table_start, row):
+            metric_cell = ws.cell(row=r, column=1)
+            val_cell = ws.cell(row=r, column=2)
+            if metric_cell.value == "Risk Level":
+                bg_color, text_color = cls.get_risk_styles(risk_level)
+                val_cell.fill = PatternFill(start_color=bg_color, end_color=bg_color, fill_type="solid")
+                val_cell.font = Font(name="Segoe UI", size=10, bold=True, color=text_color)
+                val_cell.alignment = Alignment(horizontal="center")
 
-        # Risk indicator color
-        risk_cell = ws.cell(row - 4, 2)
-        risk_color = cls.get_risk_color(case.get("risk_level", "LOW"))
-        risk_cell.fill = PatternFill(start_color=risk_color, end_color=risk_color, fill_type="solid")
-        risk_cell.font = Font(bold=True, color="FFFFFF" if case.get("risk_level", "LOW").upper() != "LOW" else "000000")
-
+        row += 2
+        
+        # Section Header: Executive Narrative
+        ws.cell(row=row, column=1, value="Forensic Assessment").font = Font(name="Segoe UI", size=12, bold=True, color=cls.COLORS["header_bg"])
         row += 1
-
-        # Executive Summary Text
-        ws.cell(row, 1).value = "Executive Summary"
-        ws.cell(row, 1).font = Font(size=12, bold=True)
-        row += 1
-
-        summary_text = report.get("executive_summary", "No summary available.")
-        ws.merge_cells(f"A{row}:D{row+3}")
-        summary_cell = ws.cell(row, 1)
-        summary_cell.value = summary_text
+        
+        summary_text = report.get("executive_summary", "No assessment summary available.")
+        ws.merge_cells(start_row=row, start_column=1, end_row=row+4, end_column=4)
+        summary_cell = ws.cell(row=row, column=1, value=summary_text)
         summary_cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
-        ws.row_dimensions[row].height = 80
-        row += 4
+        summary_cell.font = Font(name="Segoe UI", size=10)
+        
+        # Outline border around summary
+        cls._apply_table_formatting(ws, start_row=row, end_row=row+4, start_col=1, end_col=4)
+        row += 6
 
-        # Recommended Next Steps
+        # Next Steps
+        ws.cell(row=row, column=1, value="Immediate Next Steps").font = Font(name="Segoe UI", size=12, bold=True, color=cls.COLORS["header_bg"])
         row += 1
-        ws.cell(row, 1).value = "Recommended Next Steps"
-        ws.cell(row, 1).font = Font(size=12, bold=True)
-        row += 1
-
+        
         next_steps = report.get("recommended_next_steps", [])
-        for step in next_steps:
-            ws.cell(row, 1).value = f"• {step}"
-            ws.cell(row, 1).alignment = Alignment(wrap_text=True)
-            ws.row_dimensions[row].height = 30
+        if next_steps:
+            for step in next_steps:
+                ws.cell(row=row, column=1, value="•").alignment = Alignment(horizontal="center")
+                ws.cell(row=row, column=1).font = Font(bold=True)
+                ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=4)
+                ws.cell(row=row, column=2, value=step).alignment = Alignment(wrap_text=True)
+                cls._apply_table_formatting(ws, start_row=row, end_row=row, start_col=1, end_col=4)
+                row += 1
+        else:
+            ws.cell(row=row, column=1, value="No specific next steps recommended.")
             row += 1
 
-        # Set column widths
-        ws.column_dimensions["A"].width = 25
-        ws.column_dimensions["B"].width = 40
-        ws.column_dimensions["C"].width = 20
-        ws.column_dimensions["D"].width = 20
+        cls._auto_fit_columns(ws)
+
+    @classmethod
+    def _build_dashboard(cls, wb: Workbook, report: Dict[str, Any], transactions: List[Dict[str, Any]], graph: Dict[str, Any]):
+        """Build Dashboard sheet with summary chart."""
+        ws = wb.create_sheet("Dashboard")
+        cls._add_sheet_title(ws, "Investigation Dashboard")
+        
+        row = 4
+        
+        # 1. Statistics Cards
+        ws.cell(row=row, column=1, value="Key Performance Indicators").font = Font(name="Segoe UI", size=12, bold=True, color=cls.COLORS["header_bg"])
+        row += 1
+        
+        card_metrics = [
+            ("Total Inflow Volume", report.get("money_flow_summary", {}).get("total_inflow", 0.0), '"₹"#,##0.00'),
+            ("Total Outflow Volume", report.get("money_flow_summary", {}).get("total_outflow", 0.0), '"₹"#,##0.00'),
+            ("Net Position", report.get("money_flow_summary", {}).get("net_flow", 0.0), '"₹"#,##0.00'),
+            ("Involvement in Cycles", len(report.get("detected_patterns", [])), "0"),
+        ]
+        
+        card_start = row
+        for label, val, num_format in card_metrics:
+            c1 = ws.cell(row=row, column=1, value=label)
+            c2 = ws.cell(row=row, column=2, value=val)
+            
+            c1.font = Font(name="Segoe UI", size=10, bold=True, color="475569")
+            c2.font = Font(name="Segoe UI", size=12, bold=True, color="1E293B")
+            c2.number_format = num_format
+            
+            row += 1
+            
+        cls._apply_table_formatting(ws, start_row=card_start, end_row=row-1, start_col=1, end_col=2)
+        row += 2
+        
+        # 2. Risk Level Counts Table
+        ws.cell(row=row, column=1, value="Risk Level Distribution").font = Font(name="Segoe UI", size=12, bold=True, color=cls.COLORS["header_bg"])
+        row += 1
+        
+        headers = ["Risk Classification", "Node Count"]
+        for col_idx, header in enumerate(headers, 1):
+            cell = ws.cell(row=row, column=col_idx, value=header)
+            cls.apply_style(cell, **cls.create_header_style())
+        row += 1
+        
+        # Calculate risk categories from graph nodes
+        nodes = graph.get("nodes", [])
+        risk_counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+        for n in nodes:
+            r = n.get("risk", n.get("data", {}).get("risk", 0))
+            if r >= 70:
+                risk_counts["CRITICAL"] += 1
+            elif r >= 60:
+                risk_counts["HIGH"] += 1
+            elif r >= 40:
+                risk_counts["MEDIUM"] += 1
+            else:
+                risk_counts["LOW"] += 1
+                
+        table_start = row
+        for level, count in risk_counts.items():
+            ws.cell(row=row, column=1, value=level).font = Font(name="Segoe UI", size=10, bold=True)
+            ws.cell(row=row, column=2, value=count)
+            row += 1
+            
+        cls._apply_table_formatting(
+            ws, 
+            start_row=table_start, 
+            end_row=row-1, 
+            start_col=1, 
+            end_col=2,
+            center_align_cols=[1],
+            right_align_cols=[2]
+        )
+        
+        # 3. Add openpyxl Chart
+        chart = BarChart()
+        chart.type = "col"
+        chart.style = 11
+        chart.title = "Investigation Risk Topology Distribution"
+        chart.y_axis.title = "Number of Entity Nodes"
+        chart.x_axis.title = "Risk Level"
+        chart.width = 16
+        chart.height = 10
+        
+        data = Reference(ws, min_col=2, min_row=table_start-1, max_row=row-1)
+        cats = Reference(ws, min_col=1, min_row=table_start, max_row=row-1)
+        chart.add_data(data, titles_from_data=True)
+        chart.set_categories(cats)
+        chart.legend = None
+        
+        ws.add_chart(chart, "D4")
+        
+        cls._auto_fit_columns(ws)
 
     @classmethod
     def _build_investigation_summary(cls, wb: Workbook, report: Dict[str, Any]):
         """Build Investigation Summary sheet."""
         ws = wb.create_sheet("Investigation Summary")
+        cls._add_sheet_title(ws, "Investigation Summary")
 
-        row = 1
-
-        # Title
-        ws.merge_cells(f"A{row}:D{row}")
-        title = ws.cell(row, 1)
-        title.value = "Investigation Summary"
-        title.font = Font(size=14, bold=True, color=cls.COLORS["header_text"])
-        title.fill = PatternFill(start_color=cls.COLORS["header_bg"], end_color=cls.COLORS["header_bg"], fill_type="solid")
-        ws.row_dimensions[row].height = 20
-        row += 2
-
+        row = 4
+        
         # Risk Explanation
-        ws.cell(row, 1).value = "Risk Explanation"
-        ws.cell(row, 1).font = Font(size=11, bold=True)
+        ws.cell(row=row, column=1, value="Risk Explanation Summary").font = Font(name="Segoe UI", size=12, bold=True, color=cls.COLORS["header_bg"])
+        row += 1
+        
+        risk_explanation = report.get("risk_explanation", "No detailed risk explanation narrative available.")
+        ws.merge_cells(start_row=row, start_column=1, end_row=row+3, end_column=4)
+        risk_cell = ws.cell(row=row, column=1, value=risk_explanation)
+        risk_cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+        risk_cell.font = Font(name="Segoe UI", size=10)
+        cls._apply_table_formatting(ws, start_row=row, end_row=row+3, start_col=1, end_col=4)
+        row += 5
+
+        # Triggered Patterns Summarized
+        ws.cell(row=row, column=1, value="Triggered Fraud Patterns").font = Font(name="Segoe UI", size=12, bold=True, color=cls.COLORS["header_bg"])
         row += 1
 
-        risk_explanation = report.get("risk_explanation", "No explanation available.")
-        ws.merge_cells(f"A{row}:D{row+2}")
-        risk_cell = ws.cell(row, 1)
-        risk_cell.value = risk_explanation
-        risk_cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
-        ws.row_dimensions[row].height = 60
-        row += 4
-
-        # Triggered Patterns
-        ws.cell(row, 1).value = "Triggered Patterns"
-        ws.cell(row, 1).font = Font(size=11, bold=True)
+        headers = ["Pattern ID", "Name", "Severity", "Description"]
+        for col_idx, header in enumerate(headers, 1):
+            cell = ws.cell(row=row, column=col_idx, value=header)
+            cls.apply_style(cell, **cls.create_header_style())
         row += 1
 
         patterns = report.get("detected_patterns", [])
-        for pattern in patterns:
-            pattern_name = pattern.get("name", "Unknown")
-            pattern_desc = pattern.get("description", "No description")
-            ws.cell(row, 1).value = pattern_name
-            ws.cell(row, 2).value = pattern_desc
-            ws.cell(row, 1).font = Font(bold=True)
-            ws.row_dimensions[row].height = 25
-            row += 1
+        if not patterns:
+            cell = ws.cell(row=row, column=1, value="No patterns triggered during statement analysis")
+            cell.font = Font(name="Segoe UI", size=10, italic=True)
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=4)
+            cls._apply_table_formatting(ws, start_row=row, end_row=row, start_col=1, end_col=4)
+            row += 2
+        else:
+            pattern_start = row
+            for idx, pattern in enumerate(patterns):
+                pid = f"PAT-{idx+1:03d}"
+                name = pattern.get("name", "Unknown Pattern")
+                severity = pattern.get("severity", "MEDIUM").upper()
+                desc = pattern.get("description", "No pattern details provided")
+                
+                ws.cell(row=row, column=1, value=pid)
+                ws.cell(row=row, column=2, value=name)
+                ws.cell(row=row, column=3, value=severity)
+                ws.cell(row=row, column=4, value=desc).alignment = Alignment(wrap_text=True)
+                
+                # Risk level coloring
+                bg_color, text_color = cls.get_risk_styles(severity)
+                severity_cell = ws.cell(row=row, column=3)
+                severity_cell.fill = PatternFill(start_color=bg_color, end_color=bg_color, fill_type="solid")
+                severity_cell.font = Font(name="Segoe UI", size=10, bold=True, color=text_color)
+                
+                row += 1
+                
+            cls._apply_table_formatting(
+                ws, 
+                start_row=pattern_start, 
+                end_row=row-1, 
+                start_col=1, 
+                end_col=4,
+                center_align_cols=[1, 3]
+            )
+            row += 2
 
-        row += 1
-
-        # Risk Factors
-        ws.cell(row, 1).value = "Risk Factors"
-        ws.cell(row, 1).font = Font(size=11, bold=True)
+        # Investigation Risk Factors
+        ws.cell(row=row, column=1, value="Investigation Risk Contribution Factors").font = Font(name="Segoe UI", size=12, bold=True, color=cls.COLORS["header_bg"])
         row += 1
 
         explanations = report.get("investigation_risk", {}).get("explanation", [])
-        for explanation in explanations:
-            ws.merge_cells(f"A{row}:D{row}")
-            ws.cell(row, 1).value = f"• {explanation}"
-            ws.cell(row, 1).alignment = Alignment(wrap_text=True)
-            ws.row_dimensions[row].height = 20
+        if explanations:
+            for explanation in explanations:
+                ws.cell(row=row, column=1, value="•").alignment = Alignment(horizontal="center")
+                ws.cell(row=row, column=1).font = Font(bold=True)
+                ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=4)
+                ws.cell(row=row, column=2, value=explanation).alignment = Alignment(wrap_text=True)
+                cls._apply_table_formatting(ws, start_row=row, end_row=row, start_col=1, end_col=4)
+                row += 1
+        else:
+            ws.cell(row=row, column=1, value="No anomalies identified. Transaction behaviors appear normal.")
             row += 1
 
-        # Set column widths
-        ws.column_dimensions["A"].width = 25
-        ws.column_dimensions["B"].width = 50
-        ws.column_dimensions["C"].width = 20
-        ws.column_dimensions["D"].width = 20
+        cls._auto_fit_columns(ws)
 
     @classmethod
     def _build_transactions(cls, wb: Workbook, transactions: List[Dict[str, Any]]):
         """Build Transactions sheet with all parsed transactions."""
         ws = wb.create_sheet("Transactions")
+        cls._add_sheet_title(ws, "Transactions Audit Trail")
 
-        row = 1
-
-        # Title
-        ws.merge_cells(f"A{row}:H{row}")
-        title = ws.cell(row, 1)
-        title.value = f"All Transactions ({len(transactions)} total)"
-        title.font = Font(size=14, bold=True, color=cls.COLORS["header_text"])
-        title.fill = PatternFill(start_color=cls.COLORS["header_bg"], end_color=cls.COLORS["header_bg"], fill_type="solid")
-        ws.row_dimensions[row].height = 20
-        row += 2
-
+        row = 4
+        
         # Headers
-        headers = ["Date", "Time", "Description", "Amount (₹)", "Type", "Channel", "Counterparty", "Risk Score"]
+        headers = ["Date", "Time", "Description", "Debit (₹)", "Credit (₹)", "Balance (₹)", "Channel", "Counterparty", "Risk Contribution", "Pattern Flag", "Source File"]
         for col, header in enumerate(headers, 1):
-            cell = ws.cell(row, col)
+            cell = ws.cell(row=row, column=col)
             cell.value = header
             cls.apply_style(cell, **cls.create_header_style())
         row += 1
 
-        # Sort transactions by date
-        sorted_txs = sorted(transactions, key=lambda x: x.get("timestamp", ""), reverse=True)
+        # Sort transactions in chronological order (oldest first)
+        sorted_txs = sorted(transactions, key=lambda x: x.get("timestamp", ""))
 
+        if not sorted_txs:
+            cell = ws.cell(row=row, column=1, value="No transactions found in this statement")
+            cell.font = Font(name="Segoe UI", size=10, italic=True)
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=11)
+            cls._apply_table_formatting(ws, start_row=row, end_row=row, start_col=1, end_col=11)
+            return
+
+        tx_start = row
         for tx in sorted_txs:
-            ws.cell(row, 1).value = tx.get("date", "N/A")
-            ws.cell(row, 2).value = tx.get("time", "N/A")
-            ws.cell(row, 3).value = tx.get("description", "N/A")
-            ws.cell(row, 4).value = tx.get("amount", 0)
-            ws.cell(row, 4).number_format = '#,##0.00'
-            ws.cell(row, 5).value = "Debit" if tx.get("is_debit", True) else "Credit"
-            ws.cell(row, 6).value = tx.get("channel", "N/A")
-            ws.cell(row, 7).value = tx.get("sender_account" if tx.get("is_debit") else "receiver_account", "N/A")
-
-            risk_score = tx.get("risk_score", 0)
-            ws.cell(row, 8).value = f"{risk_score:.0f}%" if risk_score else "N/A"
-
-            # Alternate row colors
-            fill_color = cls.COLORS["row_alt1"] if row % 2 == 0 else cls.COLORS["row_alt2"]
-            for col in range(1, 9):
-                ws.cell(row, col).fill = PatternFill(start_color=fill_color, end_color=fill_color, fill_type="solid")
-
+            is_debit = tx.get("is_debit", True)
+            amount = tx.get("amount", 0.0)
+            debit = amount if is_debit else 0.0
+            credit = amount if not is_debit else 0.0
+            
+            # Counterparty
+            counterparty = tx.get("sender_account" if is_debit else "receiver_account", "N/A")
+            
+            risk_val = tx.get("risk_score", 0.0)
+            pattern_flag = "Yes" if tx.get("pattern_flag", tx.get("is_scripted", False)) else "No"
+            
+            ws.cell(row=row, column=1, value=tx.get("date", "N/A"))
+            ws.cell(row=row, column=2, value=tx.get("time", "N/A"))
+            ws.cell(row=row, column=3, value=tx.get("description", "N/A"))
+            ws.cell(row=row, column=4, value=debit)
+            ws.cell(row=row, column=5, value=credit)
+            ws.cell(row=row, column=6, value=tx.get("balance_after", tx.get("balance", 0.0)))
+            ws.cell(row=row, column=7, value=tx.get("channel", "N/A"))
+            ws.cell(row=row, column=8, value=counterparty)
+            ws.cell(row=row, column=9, value=f"{risk_val:.0f}%" if risk_val else "0%")
+            ws.cell(row=row, column=10, value=pattern_flag)
+            ws.cell(row=row, column=11, value=tx.get("source_file", "N/A"))
+            
             row += 1
 
-        # Freeze panes
-        ws.freeze_panes = "A3"
+        # Formatting table
+        cls._apply_table_formatting(
+            ws,
+            start_row=tx_start,
+            end_row=row-1,
+            start_col=1,
+            end_col=11,
+            right_align_cols=[4, 5, 6, 9],
+            center_align_cols=[1, 2, 7, 10, 11],
+            currency_cols=[4, 5, 6]
+        )
 
-        # Set column widths
-        ws.column_dimensions["A"].width = 12
-        ws.column_dimensions["B"].width = 12
-        ws.column_dimensions["C"].width = 30
-        ws.column_dimensions["D"].width = 15
-        ws.column_dimensions["E"].width = 10
-        ws.column_dimensions["F"].width = 12
-        ws.column_dimensions["G"].width = 20
-        ws.column_dimensions["H"].width = 12
+        # Enable Filters
+        ws.auto_filter.ref = f"A4:K{row-1}"
+        
+        # Freeze panes
+        ws.freeze_panes = "A5"
+
+        cls._auto_fit_columns(ws)
 
     @classmethod
     def _build_high_risk_transactions(cls, wb: Workbook, report: Dict[str, Any]):
         """Build High Risk Transactions sheet."""
         ws = wb.create_sheet("High Risk Transactions")
+        cls._add_sheet_title(ws, "High Risk & Suspicious Transactions")
 
-        row = 1
-
-        # Title
-        ws.merge_cells(f"A{row}:G{row}")
-        title = ws.cell(row, 1)
-        title.value = "High Risk Transactions"
-        title.font = Font(size=14, bold=True, color=cls.COLORS["header_text"])
-        title.fill = PatternFill(start_color=cls.COLORS["header_bg"], end_color=cls.COLORS["header_bg"], fill_type="solid")
-        ws.row_dimensions[row].height = 20
-        row += 2
-
+        row = 4
+        
         # Headers
-        headers = ["Date", "Amount (₹)", "Risk Score", "Risk Level", "Description", "Counterparty", "Pattern Flag"]
+        headers = ["Transaction ID", "Date", "Amount (₹)", "Reason / Description", "Risk Contribution", "Triggered Pattern", "Counterparty"]
         for col, header in enumerate(headers, 1):
             cell = ws.cell(row, col)
             cell.value = header
@@ -379,487 +666,830 @@ class ExcelReportGenerator:
         row += 1
 
         high_risk_txs = report.get("high_risk_transactions", [])
+        if not high_risk_txs:
+            cell = ws.cell(row=row, column=1, value="No high risk or suspicious transactions detected")
+            cell.font = Font(name="Segoe UI", size=10, italic=True)
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=7)
+            cls._apply_table_formatting(ws, start_row=row, end_row=row, start_col=1, end_col=7)
+            return
+
+        tx_start = row
         for tx in high_risk_txs:
-            risk_score = tx.get("risk_score", tx.get("amount", 0))
-            risk_level = "HIGH" if risk_score >= 60 else "MEDIUM" if risk_score >= 40 else "LOW"
-
-            ws.cell(row, 1).value = tx.get("date", "N/A")
-            ws.cell(row, 2).value = tx.get("amount", 0)
-            ws.cell(row, 2).number_format = '#,##0.00'
-            ws.cell(row, 3).value = f"{risk_score:.0f}%"
-            ws.cell(row, 4).value = risk_level
-            ws.cell(row, 5).value = tx.get("description", "N/A")
-            ws.cell(row, 6).value = tx.get("sender_account", "N/A")
-            ws.cell(row, 7).value = "Yes" if tx.get("pattern_flag") else "No"
-
-            # Color code risk level
-            risk_color = cls.get_risk_color(risk_level)
-            for col in range(1, 8):
-                cell = ws.cell(row, col)
-                if col == 4:  # Risk level column
-                    cell.fill = PatternFill(start_color=risk_color, end_color=risk_color, fill_type="solid")
-                    cell.font = Font(bold=True, color="FFFFFF")
-
+            tx_id = tx.get("transaction_id", tx.get("tx_id", "N/A"))
+            date = tx.get("date", "N/A")
+            amount = tx.get("amount", 0.0)
+            desc = tx.get("description", "N/A")
+            risk_val = tx.get("risk_score", 0.0)
+            
+            # Identify triggered pattern
+            pattern = tx.get("triggered_pattern", "N/A")
+            if pattern == "N/A" and tx.get("pattern_flag"):
+                pattern = "Behavioral Structuring"
+                
+            is_debit = tx.get("is_debit", True)
+            counterparty = tx.get("sender_account" if is_debit else "receiver_account", "N/A")
+            
+            ws.cell(row=row, column=1, value=tx_id)
+            ws.cell(row=row, column=2, value=date)
+            ws.cell(row=row, column=3, value=amount)
+            ws.cell(row=row, column=4, value=desc).alignment = Alignment(wrap_text=True)
+            ws.cell(row=row, column=5, value=f"{risk_val:.0f}%" if risk_val else "N/A")
+            ws.cell(row=row, column=6, value=pattern)
+            ws.cell(row=row, column=7, value=counterparty)
+            
+            # Risk coloring highlights
+            if risk_val >= 70:
+                # Soft red warning fill
+                fill = PatternFill(start_color="FEE2E2", end_color="FEE2E2", fill_type="solid")
+                for c in range(1, 8):
+                    ws.cell(row=row, column=c).fill = fill
+                    
             row += 1
 
-        ws.freeze_panes = "A3"
+        cls._apply_table_formatting(
+            ws,
+            start_row=tx_start,
+            end_row=row-1,
+            start_col=1,
+            end_col=7,
+            right_align_cols=[3, 5],
+            center_align_cols=[1, 2, 7],
+            currency_cols=[3]
+        )
 
-        # Set column widths
-        for col in range(1, 8):
-            ws.column_dimensions[get_column_letter(col)].width = 18
+        ws.auto_filter.ref = f"A4:G{row-1}"
+        ws.freeze_panes = "A5"
+        cls._auto_fit_columns(ws)
 
     @classmethod
     def _build_detected_patterns(cls, wb: Workbook, report: Dict[str, Any]):
         """Build Detected Patterns sheet."""
         ws = wb.create_sheet("Detected Patterns")
+        cls._add_sheet_title(ws, "Flagged Forensic Patterns")
 
-        row = 1
-
-        # Title
-        ws.merge_cells(f"A{row}:E{row}")
-        title = ws.cell(row, 1)
-        title.value = "Detected Patterns"
-        title.font = Font(size=14, bold=True, color=cls.COLORS["header_text"])
-        title.fill = PatternFill(start_color=cls.COLORS["header_bg"], end_color=cls.COLORS["header_bg"], fill_type="solid")
-        ws.row_dimensions[row].height = 20
-        row += 2
-
+        row = 4
+        
         # Headers
-        headers = ["Pattern", "Severity", "Confidence", "Description", "Related Transactions"]
+        headers = ["Pattern", "Severity", "Confidence", "Description", "Related Transactions", "Investigation Recommendation"]
         for col, header in enumerate(headers, 1):
-            cell = ws.cell(row, col)
-            cell.value = header
+            cell = ws.cell(row=col, column=col) # Wait! This is a bug in the old code!ws.cell(row=col, column=col)? Yes!
+            # Let's fix this bug: ws.cell(row=row, column=col, value=header)
+            cell = ws.cell(row=row, column=col, value=header)
             cls.apply_style(cell, **cls.create_header_style())
         row += 1
 
         patterns = report.get("detected_patterns", [])
+        if not patterns:
+            cell = ws.cell(row=row, column=1, value="No specific patterns detected in statement data")
+            cell.font = Font(name="Segoe UI", size=10, italic=True)
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
+            cls._apply_table_formatting(ws, start_row=row, end_row=row, start_col=1, end_col=6)
+            return
+
+        pattern_start = row
         for pattern in patterns:
+            name = pattern.get("name", "Unknown Pattern")
             severity = pattern.get("severity", "MEDIUM").upper()
+            confidence = pattern.get("confidence", 0.0)
+            desc = pattern.get("description", "No description")
+            count = pattern.get("related_transactions_count", len(pattern.get("related_transactions", [])))
+            
+            # Recommendation lookup based on name or severity
+            rec = pattern.get("recommendation", "N/A")
+            if rec == "N/A":
+                if severity == "CRITICAL" or severity == "HIGH":
+                    rec = "Immediate freeze of lead account nodes and escalate to cyber crime unit."
+                else:
+                    rec = "Continuous active monitoring and cross-statement verification."
 
-            ws.cell(row, 1).value = pattern.get("name", "Unknown")
-            ws.cell(row, 2).value = severity
-            ws.cell(row, 3).value = f"{pattern.get('confidence', 0):.0f}%"
-            ws.cell(row, 4).value = pattern.get("description", "N/A")
-            ws.cell(row, 5).value = pattern.get("related_transactions_count", 0)
+            ws.cell(row=row, column=1, value=name)
+            ws.cell(row=row, column=2, value=severity)
+            ws.cell(row=row, column=3, value=f"{confidence:.0f}%" if confidence else "N/A")
+            ws.cell(row=row, column=4, value=desc).alignment = Alignment(wrap_text=True)
+            ws.cell(row=row, column=5, value=count)
+            ws.cell(row=row, column=6, value=rec).alignment = Alignment(wrap_text=True)
 
-            # Color code severity
-            severity_color = cls.get_risk_color(severity)
-            severity_cell = ws.cell(row, 2)
-            severity_cell.fill = PatternFill(start_color=severity_color, end_color=severity_color, fill_type="solid")
-            severity_cell.font = Font(bold=True, color="FFFFFF")
+            # Severity highlight fill
+            bg_color, text_color = cls.get_risk_styles(severity)
+            severity_cell = ws.cell(row=row, column=2)
+            severity_cell.fill = PatternFill(start_color=bg_color, end_color=bg_color, fill_type="solid")
+            severity_cell.font = Font(name="Segoe UI", size=10, bold=True, color=text_color)
 
             row += 1
 
-        ws.freeze_panes = "A3"
+        cls._apply_table_formatting(
+            ws,
+            start_row=pattern_start,
+            end_row=row-1,
+            start_col=1,
+            end_col=6,
+            center_align_cols=[2, 3, 5],
+            right_align_cols=[]
+        )
 
-        # Set column widths
-        ws.column_dimensions["A"].width = 25
-        ws.column_dimensions["B"].width = 12
-        ws.column_dimensions["C"].width = 12
-        ws.column_dimensions["D"].width = 40
-        ws.column_dimensions["E"].width = 20
+        ws.freeze_panes = "A5"
+        cls._auto_fit_columns(ws)
 
     @classmethod
-    def _build_money_flow(cls, wb: Workbook, report: Dict[str, Any]):
-        """Build Money Flow sheet."""
+    def _build_money_flow(cls, wb: Workbook, report: Dict[str, Any], graph: Dict[str, Any]):
+        """Build Money Flow sheet (Edge List)."""
         ws = wb.create_sheet("Money Flow")
+        cls._add_sheet_title(ws, "Mule Network Money Flow (Edge List)")
 
-        row = 1
-
-        # Title
-        ws.merge_cells(f"A{row}:F{row}")
-        title = ws.cell(row, 1)
-        title.value = "Money Flow Summary"
-        title.font = Font(size=14, bold=True, color=cls.COLORS["header_text"])
-        title.fill = PatternFill(start_color=cls.COLORS["header_bg"], end_color=cls.COLORS["header_bg"], fill_type="solid")
-        ws.row_dimensions[row].height = 20
-        row += 2
-
-        # Money flow summary metrics
-        money_flow = report.get("money_flow_summary", {})
-
-        metrics = [
-            ("Total Inflow", money_flow.get("total_inflow", 0)),
-            ("Total Outflow", money_flow.get("total_outflow", 0)),
-            ("Net Flow", money_flow.get("net_flow", 0)),
-            ("Unique Counterparties", money_flow.get("unique_counterparties", 0)),
-            ("Primary Flow Direction", money_flow.get("primary_flow_direction", "N/A")),
-        ]
-
-        for metric, value in metrics:
-            ws.cell(row, 1).value = metric
-            ws.cell(row, 1).font = Font(bold=True)
-            if isinstance(value, (int, float)) and metric != "Unique Counterparties":
-                ws.cell(row, 2).value = value
-                ws.cell(row, 2).number_format = '#,##0.00'
-            else:
-                ws.cell(row, 2).value = str(value)
-            row += 1
-
-        row += 2
-
-        # Money flow details (from graph or beneficiaries)
-        ws.cell(row, 1).value = "Top Beneficiaries"
-        ws.cell(row, 1).font = Font(size=12, bold=True)
-        row += 1
-
-        headers = ["Beneficiary", "Total Received (₹)", "Transaction Count"]
+        row = 4
+        
+        # Headers
+        headers = ["Source Account", "Destination Account", "Amount (₹)", "Channel", "Transaction ID", "Date", "Description"]
         for col, header in enumerate(headers, 1):
-            cell = ws.cell(row, col)
-            cell.value = header
+            cell = ws.cell(row=row, column=col, value=header)
             cls.apply_style(cell, **cls.create_header_style())
         row += 1
 
-        beneficiaries = report.get("top_beneficiaries", [])
-        for benef in beneficiaries:
-            ws.cell(row, 1).value = benef.get("account", benef.get("name", "Unknown"))
-            ws.cell(row, 2).value = benef.get("total_received", 0)
-            ws.cell(row, 2).number_format = '#,##0.00'
-            ws.cell(row, 3).value = benef.get("tx_count", 0)
+        edges = graph.get("edges", [])
+        if not edges:
+            # Fallback to general transaction flows if graph edges are empty
+            cell = ws.cell(row=row, column=1, value="No money flow network linkages detected")
+            cell.font = Font(name="Segoe UI", size=10, italic=True)
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=7)
+            cls._apply_table_formatting(ws, start_row=row, end_row=row, start_col=1, end_col=7)
+            return
+
+        flow_start = row
+        for edge in edges:
+            src = edge.get("source", edge.get("from", "N/A"))
+            dst = edge.get("target", edge.get("to", "N/A"))
+            amount = edge.get("amount", 0.0)
+            channel = edge.get("channel", "N/A")
+            tx_id = edge.get("tx_id", "N/A")
+            date = edge.get("date", "N/A")
+            desc = edge.get("description", "N/A")
+            
+            ws.cell(row=row, column=1, value=src)
+            ws.cell(row=row, column=2, value=dst)
+            ws.cell(row=row, column=3, value=amount)
+            ws.cell(row=row, column=4, value=channel)
+            ws.cell(row=row, column=5, value=tx_id)
+            ws.cell(row=row, column=6, value=date)
+            ws.cell(row=row, column=7, value=desc)
+            
             row += 1
 
-        # Set column widths
-        ws.column_dimensions["A"].width = 25
-        ws.column_dimensions["B"].width = 20
-        ws.column_dimensions["C"].width = 20
-        ws.column_dimensions["D"].width = 20
-        ws.column_dimensions["E"].width = 20
-        ws.column_dimensions["F"].width = 20
+        cls._apply_table_formatting(
+            ws,
+            start_row=flow_start,
+            end_row=row-1,
+            start_col=1,
+            end_col=7,
+            right_align_cols=[3],
+            center_align_cols=[1, 2, 4, 5, 6],
+            currency_cols=[3]
+        )
+
+        ws.freeze_panes = "A5"
+        cls._auto_fit_columns(ws)
 
     @classmethod
     def _build_entities(cls, wb: Workbook, report: Dict[str, Any]):
         """Build Extracted Entities sheet."""
-        ws = wb.create_sheet("Entities")
+        ws = wb.create_sheet("Extracted Entities")
+        cls._add_sheet_title(ws, "Extracted Narrations Entities")
 
-        row = 1
-
-        # Title
-        ws.merge_cells(f"A{row}:C{row}")
-        title = ws.cell(row, 1)
-        title.value = "Extracted Entities"
-        title.font = Font(size=14, bold=True, color=cls.COLORS["header_text"])
-        title.fill = PatternFill(start_color=cls.COLORS["header_bg"], end_color=cls.COLORS["header_bg"], fill_type="solid")
-        ws.row_dimensions[row].height = 20
-        row += 2
-
+        row = 4
         entities = report.get("extracted_entities", {})
 
-        # Helper function to build entity section
-        def build_section(title, entity_list):
-            nonlocal row
-            if not entity_list:
-                return
+        # Build sections sequentially
+        row = cls._write_entity_table(ws, "Identified Names / Account Holders", entities.get("names", []), row)
+        row = cls._write_entity_table(ws, "Connected Accounts", entities.get("accounts", []), row)
+        row = cls._write_entity_table(ws, "Extracted UPI IDs", entities.get("upi_ids", []), row)
+        row = cls._write_entity_table(ws, "Extracted IFSC Codes", entities.get("ifsc", []), row)
+        row = cls._write_entity_table(ws, "Identified Beneficiaries", entities.get("beneficiaries", []), row)
+        row = cls._write_entity_table(ws, "Linked Merchants", entities.get("merchants", []), row)
+        row = cls._write_entity_table(ws, "Associated Banks", entities.get("banks", []), row)
 
-            ws.cell(row, 1).value = title
-            ws.cell(row, 1).font = Font(size=11, bold=True)
-            row += 1
+        cls._auto_fit_columns(ws)
 
-            headers = ["Entity", "Occurrences", "Type"]
-            for col, header in enumerate(headers, 1):
-                cell = ws.cell(row, col)
-                cell.value = header
-                cls.apply_style(cell, **cls.create_header_style())
-            row += 1
-
-            for entity in entity_list:
-                ws.cell(row, 1).value = entity.get("value", "N/A")
-                ws.cell(row, 2).value = entity.get("occurrences", 1)
-                ws.cell(row, 3).value = entity.get("type", "Unknown")
-                row += 1
-
-            row += 1
-
-        # Build sections
-        build_section("Names", entities.get("names", []))
-        build_section("Accounts", entities.get("accounts", []))
-        build_section("UPI IDs", entities.get("upi_ids", []))
-        build_section("IFSC Codes", entities.get("ifsc", []))
-        build_section("Beneficiaries", entities.get("beneficiaries", []))
-        build_section("Merchants", entities.get("merchants", []))
-        build_section("Banks", entities.get("banks", []))
-
-        # Set column widths
-        ws.column_dimensions["A"].width = 30
-        ws.column_dimensions["B"].width = 15
-        ws.column_dimensions["C"].width = 20
+    @classmethod
+    def _write_entity_table(cls, ws, title: str, entity_list: List[Dict[str, Any]], start_row: int) -> int:
+        """Write a sub-table of entities."""
+        ws.cell(row=start_row, column=1, value=title).font = Font(name="Segoe UI", size=12, bold=True, color=cls.COLORS["header_bg"])
+        start_row += 1
+        
+        headers = ["Entity / Value", "Occurrences", "Linked Transactions"]
+        for col_idx, header in enumerate(headers, 1):
+            cell = ws.cell(row=start_row, column=col_idx, value=header)
+            cls.apply_style(cell, **cls.create_header_style())
+        start_row += 1
+        
+        if not entity_list:
+            cell = ws.cell(row=start_row, column=1, value="No data available")
+            cell.font = Font(name="Segoe UI", size=10, italic=True)
+            ws.merge_cells(start_row=start_row, start_column=1, end_row=start_row, end_column=3)
+            cls._apply_table_formatting(ws, start_row=start_row, end_row=start_row, start_col=1, end_col=3)
+            start_row += 2
+            return start_row
+            
+        table_start = start_row
+        for idx, item in enumerate(entity_list):
+            if isinstance(item, str):
+                val = item
+                occ = 1
+                txs_str = "N/A"
+            else:
+                val = item.get("value", item.get("name", "N/A"))
+                occ = item.get("occurrences", item.get("count", 1))
+                txs = item.get("transactions", item.get("linked_transactions", []))
+                txs_str = ", ".join(str(t) for t in txs) if isinstance(txs, list) else str(txs)
+            
+            ws.cell(row=start_row, column=1, value=val)
+            ws.cell(row=start_row, column=2, value=occ)
+            ws.cell(row=start_row, column=3, value=txs_str if txs_str else "None")
+            start_row += 1
+            
+        cls._apply_table_formatting(
+            ws, 
+            start_row=table_start, 
+            end_row=start_row-1, 
+            start_col=1, 
+            end_col=3,
+            right_align_cols=[2],
+            center_align_cols=[3]
+        )
+        
+        start_row += 2
+        return start_row
 
     @classmethod
     def _build_timeline(cls, wb: Workbook, report: Dict[str, Any]):
         """Build Timeline sheet."""
         ws = wb.create_sheet("Timeline")
+        cls._add_sheet_title(ws, "Chronological Case Timeline")
 
-        row = 1
-
-        # Title
-        ws.merge_cells(f"A{row}:F{row}")
-        title = ws.cell(row, 1)
-        title.value = "Investigation Timeline"
-        title.font = Font(size=14, bold=True, color=cls.COLORS["header_text"])
-        title.fill = PatternFill(start_color=cls.COLORS["header_bg"], end_color=cls.COLORS["header_bg"], fill_type="solid")
-        ws.row_dimensions[row].height = 20
-        row += 2
-
+        row = 4
+        
         # Headers
-        headers = ["Timestamp", "Event", "Amount (₹)", "Risk Flag", "Pattern", "Counterparty"]
+        headers = ["Timestamp / Date", "Milestone Event", "Amount (₹)", "Risk Flag", "Associated Pattern", "Counterparty"]
         for col, header in enumerate(headers, 1):
-            cell = ws.cell(row, col)
-            cell.value = header
+            cell = ws.cell(row=row, column=col, value=header)
             cls.apply_style(cell, **cls.create_header_style())
         row += 1
 
         timeline = report.get("timeline", [])
+        if not timeline:
+            cell = ws.cell(row=row, column=1, value="No timeline events available for this investigation case")
+            cell.font = Font(name="Segoe UI", size=10, italic=True)
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
+            cls._apply_table_formatting(ws, start_row=row, end_row=row, start_col=1, end_col=6)
+            return
+
+        timeline_start = row
         for event in timeline:
-            ws.cell(row, 1).value = event.get("date", "N/A")
-            ws.cell(row, 2).value = event.get("event", "N/A")
-
-            amount = event.get("amount", 0)
-            if amount:
-                ws.cell(row, 3).value = amount
-                ws.cell(row, 3).number_format = '#,##0.00'
-
-            ws.cell(row, 4).value = "Yes" if event.get("risk_flag") else "No"
-            ws.cell(row, 5).value = event.get("pattern", "N/A")
-            ws.cell(row, 6).value = event.get("counterparty", "N/A")
-
-            # Alternate row colors
-            fill_color = cls.COLORS["row_alt1"] if row % 2 == 0 else cls.COLORS["row_alt2"]
-            for col in range(1, 7):
-                ws.cell(row, col).fill = PatternFill(start_color=fill_color, end_color=fill_color, fill_type="solid")
-
+            date = event.get("date", event.get("timestamp", "N/A"))
+            evt = event.get("event", "N/A")
+            amount = event.get("amount", 0.0)
+            risk = "Yes" if event.get("risk_flag", False) else "No"
+            pattern = event.get("pattern", "N/A")
+            counterparty = event.get("counterparty", "N/A")
+            
+            ws.cell(row=row, column=1, value=date)
+            ws.cell(row=row, column=2, value=evt)
+            ws.cell(row=row, column=3, value=amount if amount else 0.0)
+            ws.cell(row=row, column=4, value=risk)
+            ws.cell(row=row, column=5, value=pattern)
+            ws.cell(row=row, column=6, value=counterparty)
+            
             row += 1
 
-        ws.freeze_panes = "A3"
+        cls._apply_table_formatting(
+            ws,
+            start_row=timeline_start,
+            end_row=row-1,
+            start_col=1,
+            end_col=6,
+            right_align_cols=[3],
+            center_align_cols=[1, 4, 6],
+            currency_cols=[3]
+        )
 
-        # Set column widths
-        ws.column_dimensions["A"].width = 18
-        ws.column_dimensions["B"].width = 25
-        ws.column_dimensions["C"].width = 15
-        ws.column_dimensions["D"].width = 12
-        ws.column_dimensions["E"].width = 20
-        ws.column_dimensions["F"].width = 20
+        ws.freeze_panes = "A5"
+        cls._auto_fit_columns(ws)
 
     @classmethod
     def _build_beneficiaries(cls, wb: Workbook, report: Dict[str, Any]):
         """Build Beneficiaries sheet."""
         ws = wb.create_sheet("Beneficiaries")
+        cls._add_sheet_title(ws, "Mule Beneficiary List")
 
-        row = 1
-
-        # Title
-        ws.merge_cells(f"A{row}:E{row}")
-        title = ws.cell(row, 1)
-        title.value = "Beneficiary Analysis"
-        title.font = Font(size=14, bold=True, color=cls.COLORS["header_text"])
-        title.fill = PatternFill(start_color=cls.COLORS["header_bg"], end_color=cls.COLORS["header_bg"], fill_type="solid")
-        ws.row_dimensions[row].height = 20
-        row += 2
-
+        row = 4
+        
         # Headers
-        headers = ["Beneficiary", "Account", "Total Received (₹)", "Transaction Count", "Risk Indicator"]
+        headers = ["Beneficiary Entity", "Connected Account", "Total Received (₹)", "Transaction Count", "Risk Evaluation"]
         for col, header in enumerate(headers, 1):
-            cell = ws.cell(row, col)
-            cell.value = header
+            cell = ws.cell(row=row, column=col, value=header)
             cls.apply_style(cell, **cls.create_header_style())
         row += 1
 
         beneficiaries = report.get("top_beneficiaries", [])
+        if not beneficiaries:
+            cell = ws.cell(row=row, column=1, value="No clear mule beneficiaries extracted from outbound transfers")
+            cell.font = Font(name="Segoe UI", size=10, italic=True)
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=5)
+            cls._apply_table_formatting(ws, start_row=row, end_row=row, start_col=1, end_col=5)
+            return
+
+        table_start = row
         for benef in beneficiaries:
-            ws.cell(row, 1).value = benef.get("name", benef.get("account", "Unknown"))
-            ws.cell(row, 2).value = benef.get("account", "N/A")
-
-            total_received = benef.get("total_received", 0)
-            ws.cell(row, 3).value = total_received
-            ws.cell(row, 3).number_format = '#,##0.00'
-
+            name = benef.get("name", "Unknown Beneficiary")
+            account = benef.get("account", "N/A")
+            total_received = benef.get("total_received", 0.0)
             tx_count = benef.get("tx_count", 0)
-            ws.cell(row, 4).value = tx_count
-
-            # Risk indicator based on transaction count
-            if tx_count > 10:
-                risk = "High Frequency"
-                color = cls.COLORS["high_risk"]
-            elif tx_count > 5:
-                risk = "Medium Frequency"
-                color = cls.COLORS["medium_risk"]
+            
+            # Risk Evaluation Heuristic
+            if tx_count >= 10:
+                risk_status = "CRITICAL (BOT SWEEP)"
+            elif tx_count >= 5:
+                risk_status = "HIGH RISK (MULE SPLIT)"
+            elif total_received > 100000:
+                risk_status = "MEDIUM RISK (LARGE ROUTE)"
             else:
-                risk = "Low Frequency"
-                color = cls.COLORS["low_risk"]
-
-            ws.cell(row, 5).value = risk
-            ws.cell(row, 5).fill = PatternFill(start_color=color, end_color=color, fill_type="solid")
-
+                risk_status = "LOW RISK (STANDARD OUTFLOW)"
+                
+            ws.cell(row=row, column=1, value=name)
+            ws.cell(row=row, column=2, value=account)
+            ws.cell(row=row, column=3, value=total_received)
+            ws.cell(row=row, column=4, value=tx_count)
+            ws.cell(row=row, column=5, value=risk_status)
+            
+            # Color code risk status column
+            bg_color = cls.COLORS["low_risk"]
+            if "CRITICAL" in risk_status:
+                bg_color = cls.COLORS["critical_risk"]
+            elif "HIGH" in risk_status:
+                bg_color = cls.COLORS["high_risk"]
+            elif "MEDIUM" in risk_status:
+                bg_color = cls.COLORS["medium_risk"]
+                
+            risk_cell = ws.cell(row=row, column=5)
+            risk_cell.fill = PatternFill(start_color=bg_color, end_color=bg_color, fill_type="solid")
+            risk_cell.font = Font(name="Segoe UI", size=10, bold=True, color="FFFFFF")
+            risk_cell.alignment = Alignment(horizontal="center")
+            
             row += 1
 
-        ws.freeze_panes = "A3"
+        cls._apply_table_formatting(
+            ws,
+            start_row=table_start,
+            end_row=row-1,
+            start_col=1,
+            end_col=5,
+            right_align_cols=[3, 4],
+            center_align_cols=[2],
+            currency_cols=[3]
+        )
 
-        # Set column widths
-        ws.column_dimensions["A"].width = 25
-        ws.column_dimensions["B"].width = 25
-        ws.column_dimensions["C"].width = 18
-        ws.column_dimensions["D"].width = 18
-        ws.column_dimensions["E"].width = 18
+        ws.freeze_panes = "A5"
+        cls._auto_fit_columns(ws)
 
     @classmethod
-    def _build_graph_statistics(cls, wb: Workbook, report: Dict[str, Any]):
+    def _build_graph_statistics(cls, wb: Workbook, report: Dict[str, Any], graph: Dict[str, Any]):
         """Build Graph Statistics sheet."""
         ws = wb.create_sheet("Graph Statistics")
+        cls._add_sheet_title(ws, "Mule Graph Node Link Statistics")
 
-        row = 1
-
-        # Title
-        ws.merge_cells(f"A{row}:D{row}")
-        title = ws.cell(row, 1)
-        title.value = "Graph & Network Statistics"
-        title.font = Font(size=14, bold=True, color=cls.COLORS["header_text"])
-        title.fill = PatternFill(start_color=cls.COLORS["header_bg"], end_color=cls.COLORS["header_bg"], fill_type="solid")
-        ws.row_dimensions[row].height = 20
+        row = 4
+        
+        # 1. Overview Table
+        ws.cell(row=row, column=1, value="Graph Summary").font = Font(name="Segoe UI", size=12, bold=True, color=cls.COLORS["header_bg"])
+        row += 1
+        
+        graph_summary = report.get("graph_summary", {})
+        nodes = graph.get("nodes", [])
+        edges = graph.get("edges", [])
+        
+        metrics = [
+            ("Total Graph Nodes", len(nodes) if nodes else graph_summary.get("total_nodes", 0)),
+            ("Total Graph Edges", len(edges) if edges else graph_summary.get("total_edges", 0)),
+        ]
+        
+        table_start = row
+        for metric, val in metrics:
+            ws.cell(row=row, column=1, value=metric).font = Font(name="Segoe UI", size=10, bold=True)
+            ws.cell(row=row, column=2, value=val)
+            row += 1
+            
+        cls._apply_table_formatting(ws, start_row=table_start, end_row=row-1, start_col=1, end_col=2)
         row += 2
 
-        graph_summary = report.get("graph_summary", {})
-
-        metrics = [
-            ("Total Nodes", graph_summary.get("total_nodes", 0)),
-            ("Total Edges", graph_summary.get("total_edges", 0)),
-        ]
-
-        for metric, value in metrics:
-            ws.cell(row, 1).value = metric
-            ws.cell(row, 1).font = Font(bold=True)
-            ws.cell(row, 2).value = value
-            row += 1
-
+        # 2. Node Types Distribution
+        ws.cell(row=row, column=1, value="Node Type Distribution").font = Font(name="Segoe UI", size=12, bold=True, color=cls.COLORS["header_bg"])
         row += 1
-
-        # Node types breakdown
-        ws.cell(row, 1).value = "Node Types Distribution"
-        ws.cell(row, 1).font = Font(size=11, bold=True)
-        row += 1
-
+        
         headers = ["Node Type", "Count"]
-        for col, header in enumerate(headers, 1):
-            cell = ws.cell(row, col)
-            cell.value = header
+        for col_idx, header in enumerate(headers, 1):
+            cell = ws.cell(row=row, column=col_idx, value=header)
             cls.apply_style(cell, **cls.create_header_style())
         row += 1
+        
+        # Calculate types
+        node_types = {}
+        for n in nodes:
+            t = n.get("node_type", n.get("data", {}).get("nodeType", "account")).upper()
+            node_types[t] = node_types.get(t, 0) + 1
+            
+        # Fallback to report dict if empty
+        if not node_types:
+            for t, count in graph_summary.get("node_types", {}).items():
+                node_types[str(t).upper()] = count
+                
+        if not node_types:
+            cell = ws.cell(row=row, column=1, value="No graph nodes available")
+            cell.font = Font(name="Segoe UI", size=10, italic=True)
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=2)
+            cls._apply_table_formatting(ws, start_row=row, end_row=row, start_col=1, end_col=2)
+            row += 2
+        else:
+            table_start = row
+            for t, count in node_types.items():
+                ws.cell(row=row, column=1, value=t)
+                ws.cell(row=row, column=2, value=count)
+                row += 1
+                
+            cls._apply_table_formatting(
+                ws,
+                start_row=table_start,
+                end_row=row-1,
+                start_col=1,
+                end_col=2,
+                center_align_cols=[1],
+                right_align_cols=[2]
+            )
 
-        node_types = graph_summary.get("node_types", {})
-        for node_type, count in node_types.items():
-            ws.cell(row, 1).value = node_type
-            ws.cell(row, 2).value = count
-            row += 1
-
-        # Set column widths
-        ws.column_dimensions["A"].width = 25
-        ws.column_dimensions["B"].width = 20
-        ws.column_dimensions["C"].width = 20
-        ws.column_dimensions["D"].width = 20
+        cls._auto_fit_columns(ws)
 
     @classmethod
     def _build_parser_statistics(cls, wb: Workbook, report: Dict[str, Any]):
         """Build Parser Statistics sheet."""
         ws = wb.create_sheet("Parser Statistics")
+        cls._add_sheet_title(ws, "Statement Parser Integrity Statistics")
 
-        row = 1
-
-        # Title
-        ws.merge_cells(f"A{row}:D{row}")
-        title = ws.cell(row, 1)
-        title.value = "Parser Statistics & Quality Metrics"
-        title.font = Font(size=14, bold=True, color=cls.COLORS["header_text"])
-        title.fill = PatternFill(start_color=cls.COLORS["header_bg"], end_color=cls.COLORS["header_bg"], fill_type="solid")
-        ws.row_dimensions[row].height = 20
+        row = 4
+        
+        # Summary Metrics
+        ws.cell(row=row, column=1, value="Execution Metrics").font = Font(name="Segoe UI", size=12, bold=True, color=cls.COLORS["header_bg"])
+        row += 1
+        
+        parser_stats = report.get("parser_statistics", {})
+        
+        metrics = [
+            ("Rows Parsed Successfully", parser_stats.get("rows_parsed", 0)),
+            ("Rows Skipped / Failed", parser_stats.get("rows_skipped", 0)),
+            ("Parser Extraction Confidence", f"{parser_stats.get('parser_confidence', 0.0):.1f}%"),
+            ("Detected Statement Format", parser_stats.get("detected_format", "Unknown")),
+            ("Source Statement File", parser_stats.get("source_file", "N/A")),
+        ]
+        
+        table_start = row
+        for metric, val in metrics:
+            ws.cell(row=row, column=1, value=metric).font = Font(name="Segoe UI", size=10, bold=True)
+            ws.cell(row=row, column=2, value=str(val))
+            row += 1
+            
+        cls._apply_table_formatting(ws, start_row=table_start, end_row=row-1, start_col=1, end_col=2)
         row += 2
 
-        parser_stats = report.get("parser_statistics", {})
-
-        metrics = [
-            ("Rows Parsed", parser_stats.get("rows_parsed", 0)),
-            ("Rows Skipped", parser_stats.get("rows_skipped", 0)),
-            ("Parser Confidence", f"{parser_stats.get('parser_confidence', 0):.1f}%"),
-            ("Detected Format", parser_stats.get("detected_format", "Unknown")),
-            ("Source File", parser_stats.get("source_file", "N/A")),
-        ]
-
-        for metric, value in metrics:
-            ws.cell(row, 1).value = metric
-            ws.cell(row, 1).font = Font(bold=True)
-            ws.cell(row, 2).value = str(value)
-            row += 1
-
+        # Parser Warnings
+        ws.cell(row=row, column=1, value="Parser Warning / Anomalies List").font = Font(name="Segoe UI", size=12, bold=True, color=cls.COLORS["header_bg"])
         row += 1
-
-        # Warnings
+        
         warnings = parser_stats.get("warnings", [])
-        if warnings:
-            ws.cell(row, 1).value = "Warnings"
-            ws.cell(row, 1).font = Font(size=11, bold=True)
-            row += 1
-
+        if not warnings:
+            cell = ws.cell(row=row, column=1, value="No parser warning logs or anomalies recorded during extraction")
+            cell.font = Font(name="Segoe UI", size=10, italic=True)
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=2)
+            cls._apply_table_formatting(ws, start_row=row, end_row=row, start_col=1, end_col=2)
+        else:
             for warning in warnings:
-                ws.merge_cells(f"A{row}:D{row}")
-                ws.cell(row, 1).value = f"⚠ {warning}"
-                ws.cell(row, 1).alignment = Alignment(wrap_text=True)
-                ws.row_dimensions[row].height = 20
+                ws.cell(row=row, column=1, value="⚠ Warning").font = Font(name="Segoe UI", size=10, bold=True, color=cls.COLORS["high_risk"])
+                ws.cell(row=row, column=2, value=warning).alignment = Alignment(wrap_text=True)
+                cls._apply_table_formatting(ws, start_row=row, end_row=row, start_col=1, end_col=2)
                 row += 1
 
-        # Set column widths
-        ws.column_dimensions["A"].width = 25
-        ws.column_dimensions["B"].width = 40
-        ws.column_dimensions["C"].width = 20
-        ws.column_dimensions["D"].width = 20
+        cls._auto_fit_columns(ws)
 
     @classmethod
     def _build_recommendations(cls, wb: Workbook, report: Dict[str, Any]):
         """Build Recommendations sheet."""
         ws = wb.create_sheet("Recommendations")
+        cls._add_sheet_title(ws, "Actionable Forensic Recommendations")
 
-        row = 1
-
-        # Title
-        ws.merge_cells(f"A{row}:D{row}")
-        title = ws.cell(row, 1)
-        title.value = "Investigation Recommendations"
-        title.font = Font(size=14, bold=True, color=cls.COLORS["header_text"])
-        title.fill = PatternFill(start_color=cls.COLORS["header_bg"], end_color=cls.COLORS["header_bg"], fill_type="solid")
-        ws.row_dimensions[row].height = 20
-        row += 2
-
+        row = 4
+        
         # Headers
-        headers = ["Priority", "Recommendation", "Reason", "Status"]
+        headers = ["Priority", "Recommendation Description", "Reasoning / Objective", "Status"]
         for col, header in enumerate(headers, 1):
-            cell = ws.cell(row, col)
-            cell.value = header
+            cell = ws.cell(row=row, column=col, value=header)
             cls.apply_style(cell, **cls.create_header_style())
         row += 1
 
         next_steps = report.get("recommended_next_steps", [])
+        if not next_steps:
+            cell = ws.cell(row=row, column=1, value="No recommendations or next steps generated")
+            cell.font = Font(name="Segoe UI", size=10, italic=True)
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=4)
+            cls._apply_table_formatting(ws, start_row=row, end_row=row, start_col=1, end_col=4)
+            return
+
         priority_levels = ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
-
+        recs_start = row
         for idx, step in enumerate(next_steps):
-            # Assign priority based on index
             priority = priority_levels[min(idx, len(priority_levels) - 1)]
-
-            ws.cell(row, 1).value = priority
-
-            priority_color = cls.get_risk_color(priority)
-            priority_cell = ws.cell(row, 1)
-            priority_cell.fill = PatternFill(start_color=priority_color, end_color=priority_color, fill_type="solid")
-            priority_cell.font = Font(bold=True, color="FFFFFF")
-
-            ws.merge_cells(f"B{row}:C{row}")
-            ws.cell(row, 2).value = step
-            ws.cell(row, 2).alignment = Alignment(wrap_text=True)
-
-            ws.cell(row, 4).value = "Pending"
-            ws.cell(row, 4).alignment = Alignment(horizontal="center")
-
-            ws.row_dimensions[row].height = 35
+            
+            # Simple heuristic reasoning mapping
+            reason = "Trace downstream asset distribution and stop further transfers."
+            if "KYC" in step.upper() or "holder" in step.lower():
+                reason = "Verify account legitimacy and validate identity records."
+            elif "UPI" in step.upper() or "IFSC" in step.upper():
+                reason = "Identify connected mule networks and cross-case links."
+            
+            ws.cell(row=row, column=1, value=priority)
+            ws.cell(row=row, column=2, value=step).alignment = Alignment(wrap_text=True)
+            ws.cell(row=row, column=3, value=reason).alignment = Alignment(wrap_text=True)
+            ws.cell(row=row, column=4, value="")  # status remains blank
+            
+            # Priority color highlight
+            bg_color, text_color = cls.get_risk_styles(priority)
+            priority_cell = ws.cell(row=row, column=1)
+            priority_cell.fill = PatternFill(start_color=bg_color, end_color=bg_color, fill_type="solid")
+            priority_cell.font = Font(name="Segoe UI", size=10, bold=True, color=text_color)
+            
             row += 1
 
-        # Set column widths
-        ws.column_dimensions["A"].width = 12
-        ws.column_dimensions["B"].width = 45
-        ws.column_dimensions["C"].width = 25
-        ws.column_dimensions["D"].width = 12
+        cls._apply_table_formatting(
+            ws,
+            start_row=recs_start,
+            end_row=row-1,
+            start_col=1,
+            end_col=4,
+            center_align_cols=[1, 4],
+            right_align_cols=[]
+        )
 
-        ws.freeze_panes = "A3"
+        ws.freeze_panes = "A5"
+        cls._auto_fit_columns(ws)
+
+    @classmethod
+    def _build_uploaded_files(cls, wb: Workbook, case: Dict[str, Any]):
+        """Build Uploaded Files worksheet listing all files processed."""
+        ws = wb.create_sheet("Uploaded Files")
+        cls._add_sheet_title(ws, "Uploaded Case Statements")
+
+        row = 4
+        headers = ["Filename", "Associated Account ID", "Confidence Score", "Rows Parsed", "Total Rows", "Skipped Rows", "Status", "Warnings"]
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=row, column=col, value=header)
+            cls.apply_style(cell, **cls.create_header_style())
+        row += 1
+
+        files = case.get("files_uploaded", [])
+        if not files:
+            cell = ws.cell(row=row, column=1, value="No file upload details recorded.")
+            cell.font = Font(name="Segoe UI", size=10, italic=True)
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=8)
+            cls._apply_table_formatting(ws, start_row=row, end_row=row, start_col=1, end_col=8)
+            return
+
+        table_start = row
+        for f in files:
+            ws.cell(row=row, column=1, value=f.get("filename", "N/A"))
+            ws.cell(row=row, column=2, value=f.get("account_id", "N/A"))
+            ws.cell(row=row, column=3, value=f"{f.get('confidence', 0.0):.1f}%")
+            ws.cell(row=row, column=4, value=f.get("rows_parsed", 0))
+            ws.cell(row=row, column=5, value=f.get("total_rows", 0))
+            ws.cell(row=row, column=6, value=f.get("skipped_rows", 0))
+            
+            status = f.get("status", "SUCCESS").upper()
+            status_cell = ws.cell(row=row, column=7, value=status)
+            bg_color = cls.COLORS["low_risk"] if status == "SUCCESS" else cls.COLORS["critical_risk"]
+            status_cell.fill = PatternFill(start_color=bg_color, end_color=bg_color, fill_type="solid")
+            status_cell.font = Font(name="Segoe UI", size=10, bold=True, color="FFFFFF")
+            status_cell.alignment = Alignment(horizontal="center")
+
+            warnings = f.get("warnings", [])
+            ws.cell(row=row, column=8, value=", ".join(warnings) if warnings else "None")
+            row += 1
+
+        cls._apply_table_formatting(
+            ws,
+            start_row=table_start,
+            end_row=row-1,
+            start_col=1,
+            end_col=8,
+            right_align_cols=[4, 5, 6],
+            center_align_cols=[2, 3, 7]
+        )
+        cls._auto_fit_columns(ws)
+
+    @classmethod
+    def _build_parser_summary(cls, wb: Workbook, report: Dict[str, Any]):
+        """Build general Parser Summary worksheet."""
+        ws = wb.create_sheet("Parser Summary")
+        cls._add_sheet_title(ws, "Ingestion and Parser Summary")
+
+        row = 4
+        headers = ["Metric", "Value"]
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=row, column=col, value=header)
+            cls.apply_style(cell, **cls.create_header_style())
+        row += 1
+
+        files = report.get("files_uploaded", [])
+        successful = [f for f in files if f.get("status") == "SUCCESS"]
+        failed = [f for f in files if f.get("status") == "FAILED"]
+        
+        parser_stats = report.get("parser_statistics", {})
+        
+        summary_rows = [
+            ("Total Statements Processed", len(files)),
+            ("Successfully Parsed", len(successful)),
+            ("Failed to Parse", len(failed)),
+            ("Average Parser Confidence", f"{parser_stats.get('confidence', 0.0):.1f}%"),
+            ("Total Transactions Ingested", parser_stats.get("parsed_rows", 0)),
+            ("Total Skipped Rows", parser_stats.get("skipped_rows", 0))
+        ]
+
+        table_start = row
+        for metric, val in summary_rows:
+            ws.cell(row=row, column=1, value=metric).font = Font(name="Segoe UI", size=10, bold=True)
+            ws.cell(row=row, column=2, value=val)
+            row += 1
+
+        cls._apply_table_formatting(
+            ws,
+            start_row=table_start,
+            end_row=row-1,
+            start_col=1,
+            end_col=2,
+            right_align_cols=[2]
+        )
+        cls._auto_fit_columns(ws)
+
+    @classmethod
+    def _build_file_statistics(cls, wb: Workbook, case: Dict[str, Any], transactions: List[Dict[str, Any]]):
+        """Build Financial aggregates per statement file."""
+        ws = wb.create_sheet("File Statistics")
+        cls._add_sheet_title(ws, "Financial Aggregates per Statement File")
+
+        row = 4
+        headers = ["Statement File", "Total Transaction Count", "Total Credits Volume (₹)", "Total Debits Volume (₹)", "Net Position (₹)"]
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=row, column=col, value=header)
+            cls.apply_style(cell, **cls.create_header_style())
+        row += 1
+
+        files = case.get("files_uploaded", [])
+        if not files:
+            cell = ws.cell(row=row, column=1, value="No file upload details recorded.")
+            cell.font = Font(name="Segoe UI", size=10, italic=True)
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=5)
+            cls._apply_table_formatting(ws, start_row=row, end_row=row, start_col=1, end_col=5)
+            return
+
+        table_start = row
+        for f in files:
+            if f.get("status") != "SUCCESS":
+                continue
+            fname = f["filename"]
+            file_txs = [tx for tx in transactions if tx.get("source_file") == fname]
+            
+            credits = sum(tx["amount"] for tx in file_txs if not tx.get("is_debit", True))
+            debits = sum(tx["amount"] for tx in file_txs if tx.get("is_debit", True))
+            net = credits - debits
+            
+            ws.cell(row=row, column=1, value=fname)
+            ws.cell(row=row, column=2, value=len(file_txs))
+            ws.cell(row=row, column=3, value=credits)
+            ws.cell(row=row, column=4, value=debits)
+            ws.cell(row=row, column=5, value=net)
+            row += 1
+
+        cls._apply_table_formatting(
+            ws,
+            start_row=table_start,
+            end_row=row-1,
+            start_col=1,
+            end_col=5,
+            right_align_cols=[2, 3, 4, 5],
+            currency_cols=[3, 4, 5]
+        )
+        cls._auto_fit_columns(ws)
+
+    @classmethod
+    def _build_cross_file_links(cls, wb: Workbook, case: Dict[str, Any], transactions: List[Dict[str, Any]]):
+        """Build Cross File Links sheet for money routed between statements."""
+        ws = wb.create_sheet("Cross File Links")
+        cls._add_sheet_title(ws, "Cross-Statement Transaction Links")
+
+        row = 4
+        headers = ["Transaction UTR", "Source Statement", "Destination Statement", "Source Account", "Destination Account", "Amount (₹)", "Date", "Description"]
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=row, column=col, value=header)
+            cls.apply_style(cell, **cls.create_header_style())
+        row += 1
+
+        account_ids = case.get("account_ids", [])
+        account_to_file = {f["account_id"]: f["filename"] for f in case.get("files_uploaded", []) if f.get("status") == "SUCCESS"}
+        
+        links = []
+        for tx in transactions:
+            sender = tx.get("sender_account")
+            receiver = tx.get("receiver_account")
+            if sender in account_ids and receiver in account_ids and sender != receiver:
+                links.append(tx)
+                
+        if not links:
+            cell = ws.cell(row=row, column=1, value="No money transfers routed between the uploaded statement accounts.")
+            cell.font = Font(name="Segoe UI", size=10, italic=True)
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=8)
+            cls._apply_table_formatting(ws, start_row=row, end_row=row, start_col=1, end_col=8)
+            return
+
+        table_start = row
+        for tx in links:
+            sender = tx["sender_account"]
+            receiver = tx["receiver_account"]
+            from_file = tx.get("source_file", account_to_file.get(sender, "N/A"))
+            to_file = account_to_file.get(receiver, "N/A")
+            
+            ws.cell(row=row, column=1, value=tx.get("tx_id", "N/A"))
+            ws.cell(row=row, column=2, value=from_file)
+            ws.cell(row=row, column=3, value=to_file)
+            ws.cell(row=row, column=4, value=sender)
+            ws.cell(row=row, column=5, value=receiver)
+            ws.cell(row=row, column=6, value=tx["amount"])
+            ws.cell(row=row, column=7, value=tx.get("date", "N/A"))
+            ws.cell(row=row, column=8, value=tx.get("description", "N/A"))
+            row += 1
+
+        cls._apply_table_formatting(
+            ws,
+            start_row=table_start,
+            end_row=row-1,
+            start_col=1,
+            end_col=8,
+            right_align_cols=[6],
+            center_align_cols=[1, 4, 5, 7],
+            currency_cols=[6]
+        )
+        cls._auto_fit_columns(ws)
+
+    @classmethod
+    def _build_shared_entities(cls, wb: Workbook, report: Dict[str, Any]):
+        """Build Shared Entities worksheet."""
+        ws = wb.create_sheet("Shared Entities")
+        cls._add_sheet_title(ws, "Entities Shared across Multiple Statements")
+
+        row = 4
+        headers = ["Entity Value", "Entity Type", "Transaction Occurrences", "Statement Count", "Referenced Statements"]
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=row, column=col, value=header)
+            cls.apply_style(cell, **cls.create_header_style())
+        row += 1
+
+        entities = report.get("extracted_entities", {})
+        shared_list = []
+        for cat, list_items in entities.items():
+            for item in list_items:
+                files = item.get("source_files", [])
+                if len(files) > 1:
+                    shared_list.append({
+                        "value": item.get("value", "N/A"),
+                        "type": item.get("type", cat[:-1] if cat.endswith("s") else cat),
+                        "count": item.get("occurrences", 1),
+                        "files": files
+                    })
+
+        if not shared_list:
+            cell = ws.cell(row=row, column=1, value="No entities were found in more than one bank statement.")
+            cell.font = Font(name="Segoe UI", size=10, italic=True)
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=5)
+            cls._apply_table_formatting(ws, start_row=row, end_row=row, start_col=1, end_col=5)
+            return
+
+        table_start = row
+        for ent in shared_list:
+            ws.cell(row=row, column=1, value=ent["value"])
+            ws.cell(row=row, column=2, value=ent["type"])
+            ws.cell(row=row, column=3, value=ent["count"])
+            ws.cell(row=row, column=4, value=len(ent["files"]))
+            ws.cell(row=row, column=5, value=", ".join(ent["files"]))
+            row += 1
+
+        cls._apply_table_formatting(
+            ws,
+            start_row=table_start,
+            end_row=row-1,
+            start_col=1,
+            end_col=5,
+            right_align_cols=[3, 4],
+            center_align_cols=[2]
+        )
+        cls._auto_fit_columns(ws)

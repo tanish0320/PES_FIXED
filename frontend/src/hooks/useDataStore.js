@@ -55,6 +55,34 @@ export const uploadStatement = async (file) => {
   }
 };
 
+export const uploadStatements = async (files) => {
+  setStore({ loading: true, error: null });
+  const formData = new FormData();
+  files.forEach(file => {
+    formData.append('files', file);
+  });
+
+  try {
+    const res = await fetch(`${API_BASE}/upload`, {
+      method: 'POST',
+      body: formData
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || `Upload failed with status ${res.status}`);
+    }
+    const data = await res.json();
+    setStore({ loading: false });
+    // Refresh stats and cases
+    await fetchStats();
+    await fetchInvestigations();
+    return data;
+  } catch (err) {
+    setStore({ loading: false, error: err.message });
+    throw err;
+  }
+};
+
 export const fetchInvestigations = async () => {
   try {
     const res = await fetch(`${API_BASE}/investigations`);
@@ -165,6 +193,7 @@ export const useDataStore = () => {
   return {
     ...state,
     uploadStatement,
+    uploadStatements,
     fetchInvestigations,
     fetchInvestigation,
     fetchReport,
