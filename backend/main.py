@@ -136,8 +136,7 @@ def get_investigation_report(case_id: str, format: str = "json") -> Dict[str, An
 
         try:
             from app.services.excel_report_generator import ExcelReportGenerator
-            from fastapi.responses import StreamingResponse
-            import io
+            from fastapi.responses import Response
 
             # Get transactions
             tx_ids = case.get("transactions", [])
@@ -151,31 +150,32 @@ def get_investigation_report(case_id: str, format: str = "json") -> Dict[str, An
 
             logger.info("[API] Excel workbook generated successfully: {} bytes".format(len(excel_bytes)))
 
-            # Create filename
-            safe_case_id = case_id.replace('/', '-').replace('\\', '-').replace('"', '').replace("'", '')
+            # Create filename - NO SPECIAL CHARS
+            safe_case_id = case_id.replace('/', '_').replace('\\', '_').replace('"', '').replace("'", '').replace('-', '_')
             filename = "Sentinel_Investigation_{}.xlsx".format(safe_case_id)
 
-            logger.debug("[API] Preparing to send: {}".format(filename))
+            logger.debug("[API] Filename: {}".format(filename))
+            logger.debug("[API] Excel bytes length: {}".format(len(excel_bytes)))
+            logger.debug("[API] Excel bytes type: {}".format(type(excel_bytes)))
+            logger.debug("[API] Excel first 10 bytes (hex): {}".format(excel_bytes[:10].hex()))
 
-            # Create BytesIO stream
-            output_stream = io.BytesIO(excel_bytes)
-
-            # Return using StreamingResponse with proper headers
-            # This is the most reliable way to send binary files in FastAPI
-            response = StreamingResponse(
-                iter([excel_bytes]),  # Send bytes directly in one chunk
+            # Use direct Response - NOT StreamingResponse
+            # This sends all bytes at once, no async issues
+            response = Response(
+                content=excel_bytes,
+                status_code=200,
                 media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 headers={
                     "Content-Disposition": 'attachment; filename="{}"'.format(filename),
-                    "Content-Length": str(len(excel_bytes)),
                     "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "Content-Length": str(len(excel_bytes)),
                     "Cache-Control": "no-cache, no-store, must-revalidate",
                     "Pragma": "no-cache",
                     "Expires": "0"
                 }
             )
 
-            logger.info("[API] Sending Excel file: {} ({} bytes)".format(filename, len(excel_bytes)))
+            logger.info("[API] Sending Excel file via Response: {} ({} bytes)".format(filename, len(excel_bytes)))
 
             return response
 
@@ -188,7 +188,7 @@ def get_investigation_report(case_id: str, format: str = "json") -> Dict[str, An
         except Exception as e:
             logger.error("[API] Excel export failed for case {}: {}".format(case_id, str(e)))
             import traceback
-            traceback.print_exc()
+            logger.error(traceback.format_exc())
             raise HTTPException(
                 status_code=500,
                 detail="Failed to generate Excel report: {}".format(str(e))
