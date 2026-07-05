@@ -242,7 +242,7 @@ const AppContent = () => {
     } else if (path === '/upload') {
       copilotContext.setCurrentPage('upload');
       copilotContext.setCurrentInvestigation(null);
-
+    }
   }, [location.pathname, role]);
 
   if (!role) {
