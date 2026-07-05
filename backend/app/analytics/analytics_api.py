@@ -339,35 +339,43 @@ def get_cycles():
             total_txs = flow_data['tx_count'] + reverse_flow['tx_count']
 
             # Risk calculation: base + amount + frequency + symmetry
-            risk_score = 30  # Base risk for any mutual flow
+            risk_score = 20  # Base risk for any mutual flow
 
             # Amount-based risk (fraud typically moves large sums)
-            if total_amount > 100_000_000:  # 1 crore
+            # Adjusted thresholds for this dataset
+            if total_amount > 1_000_000:  # 10 lakhs (was 1 crore)
                 risk_score += 40
-            elif total_amount > 10_000_000:  # 10 lakhs
+            elif total_amount > 500_000:  # 5 lakhs (was 10 lakhs)
                 risk_score += 30
-            elif total_amount > 1_000_000:  # 1 lakh
+            elif total_amount > 100_000:  # 1 lakh (was 1 lakh)
                 risk_score += 20
-            elif total_amount > 100_000:  # 100K
+            elif total_amount > 50_000:  # 50K (was 100K)
                 risk_score += 10
+            elif total_amount > 10_000:  # NEW: 10K minimum
+                risk_score += 5
 
             # Frequency-based risk (repeated pattern = higher suspicion)
-            if total_txs >= 100:
+            # Adjusted thresholds - most cycles have 2-4 transactions
+            if total_txs >= 50:
                 risk_score += 35
-            elif total_txs >= 50:
+            elif total_txs >= 30:
                 risk_score += 28
-            elif total_txs >= 20:
-                risk_score += 18
-            elif total_txs >= 10:
-                risk_score += 10
-            elif total_txs >= 5:
+            elif total_txs >= 15:
+                risk_score += 20
+            elif total_txs >= 8:
+                risk_score += 15
+            elif total_txs >= 4:
+                risk_score += 8
+            elif total_txs >= 2:
                 risk_score += 5
 
             # Flow balance risk (symmetric flows are more suspicious)
             flow_ratio = min(flow_data['amount'], reverse_flow['amount']) / max(flow_data['amount'], reverse_flow['amount'])
-            if flow_ratio > 0.8:  # Nearly equal flows
+            if flow_ratio > 0.9:  # Nearly perfect symmetry (was 0.8)
+                risk_score += 25
+            elif flow_ratio > 0.75:  # Good symmetry (was 0.6)
                 risk_score += 15
-            elif flow_ratio > 0.6:  # Moderately balanced
+            elif flow_ratio > 0.5:  # Moderate symmetry (NEW)
                 risk_score += 8
 
             cycles.append({
