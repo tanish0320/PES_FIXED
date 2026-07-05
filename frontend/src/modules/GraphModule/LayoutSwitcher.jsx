@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Grid3x3, Circle, Layers, Radial } from 'lucide-react';
+import { Grid3x3, Circle, Layers, Zap } from 'lucide-react';
 
 /**
  * Layout Switcher Component
@@ -37,7 +37,7 @@ export default function LayoutSwitcher({ nodeCount, onLayoutChange }) {
     {
       id: 'radial',
       name: 'Radial',
-      icon: Radial,
+      icon: Zap,
       description: 'Hub-spoke',
       cyLayout: 'concentric'
     }
