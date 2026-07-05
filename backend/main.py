@@ -44,22 +44,36 @@ def health_check() -> dict[str, str]:
 @app.post("/upload")
 async def upload_statement(file: UploadFile = File(...)):
     """
-    Accepts an uploaded bank statement (.pdf, .csv, .xlsx, .xls, .txt), 
+    Accepts an uploaded bank statement (.pdf, .csv, .xlsx, .xls, .txt),
     runs the full analysis pipeline, and returns case details.
     """
+    import time
+    upload_start = time.time()
+    print(f"[UPLOAD] 1. File received: {file.filename}", flush=True)
+
     # Save statement to disk
     file_path = os.path.join(UPLOAD_DIR, file.filename)
+    t = time.time()
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-        
+    print(f"[UPLOAD] 2. File saved ({time.time()-t:.2f}s)", flush=True)
+
     try:
+        print(f"[UPLOAD] 3. Starting pipeline...", flush=True)
         result = process_statement(file_path, file.filename, data_store)
 
         # Analytics (Global Financial Intelligence Engine) — additive, non-blocking
         try:
+            print(f"[UPLOAD] 4. Starting analytics ingestion...", flush=True)
+            t = time.time()
             ingest_file(file_path)
+            print(f"[UPLOAD] 5. Analytics ingested ({time.time()-t:.2f}s)", flush=True)
         except Exception as analytics_err:
             print(f"[analytics] non-fatal ingestion error: {analytics_err}")
+
+        total_time = time.time() - upload_start
+        print(f"[UPLOAD] COMPLETE in {total_time:.2f}s", flush=True)
+        result["upload_total_time_seconds"] = total_time
 
         return result
     except Exception as e:
