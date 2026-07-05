@@ -418,18 +418,24 @@ const GraphCanvas = forwardRef(({
       cy.batch(() => {
         cy.elements().removeClass('highlighted-trail').removeClass('dimmed');
         cy.elements().addClass('dimmed');
-        
+
+        // Highlight nodes by direct ID lookup (Cytoscape node ID = accountId)
+        nodeIds.forEach(nodeId => {
+          const node = cy.getElementById(String(nodeId));
+          if (node.length > 0) {
+            node.removeClass('dimmed').addClass('highlighted-trail');
+            // Also highlight all their connected edges + neighbor nodes
+            node.connectedEdges().removeClass('dimmed').addClass('highlighted-trail');
+            node.connectedEdges().connectedNodes().removeClass('dimmed').addClass('highlighted-trail');
+          }
+        });
+
+        // Also highlight by txId in case nodeIds are missing some edges
         txIds.forEach(txId => {
           const edge = cy.getElementById(String(txId));
           if (edge.length > 0) {
             edge.removeClass('dimmed').addClass('highlighted-trail');
-          }
-        });
-        
-        nodeIds.forEach(nodeId => {
-          const node = cy.nodes().filter(n => n.data('account_id') === String(nodeId) || n.id() === String(nodeId));
-          if (node.length > 0) {
-            node.removeClass('dimmed').addClass('highlighted-trail');
+            edge.connectedNodes().removeClass('dimmed').addClass('highlighted-trail');
           }
         });
       });
