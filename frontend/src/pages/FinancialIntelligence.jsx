@@ -240,7 +240,7 @@ export default function FinancialIntelligence() {
                         <div className="text-sm text-slate-400">High-Risk (≥70%)</div>
                       </div>
                       <div className="bg-amber-950 p-4 rounded-lg">
-                        <div className="text-3xl font-bold text-amber-600">${(cycles.total_volume_in_cycles / 1000000).toFixed(1)}M</div>
+                        <div className="text-3xl font-bold text-amber-600">₹{(cycles.total_volume_in_cycles / 1000000).toFixed(1)}M</div>
                         <div className="text-sm text-slate-400">Total Volume</div>
                       </div>
                     </div>
@@ -261,7 +261,7 @@ export default function FinancialIntelligence() {
                           <strong>Path:</strong> {cycle.accounts.join(' → ')}
                         </p>
                         <p className="text-slate-400 text-sm">
-                          <strong>Hops:</strong> {cycle.steps} | <strong>Amount:</strong> ${(cycle.total_amount / 100000).toFixed(2)}L | <strong>Duration:</strong> {cycle.duration_days} days
+                          <strong>Hops:</strong> {cycle.steps} | <strong>Amount:</strong> ₹{(cycle.total_amount / 100000).toFixed(2)}L | <strong>Duration:</strong> {cycle.duration_days} days
                         </p>
                         <p className="text-xs text-slate-500 mt-2">Click to view cycle graph</p>
                       </div>
@@ -363,7 +363,7 @@ export default function FinancialIntelligence() {
                         {hubs.hubs.map((hub, idx) => (
                           <div key={idx} className="flex justify-between items-center p-3 bg-slate-800 rounded-lg">
                             <span className="font-medium text-slate-100">#{idx + 1} {hub.account_id}</span>
-                            <span className="text-blue-600 font-bold">${(hub.total_volume / 1000000).toFixed(2)}M</span>
+                            <span className="text-blue-600 font-bold">₹{(hub.total_volume / 1000000).toFixed(2)}M</span>
                           </div>
                         ))}
                       </div>
@@ -403,7 +403,7 @@ export default function FinancialIntelligence() {
                         <p className="text-slate-300 mb-2"><strong>ID:</strong> {searchResults.account.account?.account_id}</p>
                         <p className="text-slate-300 mb-2"><strong>Bank:</strong> {searchResults.account.account?.bank_name || 'Unknown'}</p>
                         <p className="text-slate-300 mb-2"><strong>Transactions:</strong> {searchResults.account.transaction_count}</p>
-                        <p className="text-slate-300"><strong>Net Flow:</strong> ${(searchResults.account.net_flow / 100000).toFixed(2)}L</p>
+                        <p className="text-slate-300"><strong>Net Flow:</strong> ₹{(searchResults.account.net_flow / 100000).toFixed(2)}L</p>
                       </div>
                     )}
                     {searchResults.entity && (
