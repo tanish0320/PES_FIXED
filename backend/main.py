@@ -44,36 +44,22 @@ def health_check() -> dict[str, str]:
 @app.post("/upload")
 async def upload_statement(file: UploadFile = File(...)):
     """
-    Accepts an uploaded bank statement (.pdf, .csv, .xlsx, .xls, .txt),
+    Accepts an uploaded bank statement (.pdf, .csv, .xlsx, .xls, .txt), 
     runs the full analysis pipeline, and returns case details.
     """
-    import time
-    upload_start = time.time()
-    print(f"[UPLOAD] 1. File received: {file.filename}", flush=True)
-
     # Save statement to disk
     file_path = os.path.join(UPLOAD_DIR, file.filename)
-    t = time.time()
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-    print(f"[UPLOAD] 2. File saved ({time.time()-t:.2f}s)", flush=True)
-
+        
     try:
-        print(f"[UPLOAD] 3. Starting pipeline...", flush=True)
         result = process_statement(file_path, file.filename, data_store)
 
         # Analytics (Global Financial Intelligence Engine) — additive, non-blocking
         try:
-            print(f"[UPLOAD] 4. Starting analytics ingestion...", flush=True)
-            t = time.time()
             ingest_file(file_path)
-            print(f"[UPLOAD] 5. Analytics ingested ({time.time()-t:.2f}s)", flush=True)
         except Exception as analytics_err:
             print(f"[analytics] non-fatal ingestion error: {analytics_err}")
-
-        total_time = time.time() - upload_start
-        print(f"[UPLOAD] COMPLETE in {total_time:.2f}s", flush=True)
-        result["upload_total_time_seconds"] = total_time
 
         return result
     except Exception as e:
@@ -126,90 +112,43 @@ def get_investigation_report(case_id: str, format: str = "json") -> Dict[str, An
 
     Query params:
         format: "json" (default), "excel"
-
-    Returns:
-        - JSON format: Investigation report object
-        - Excel format: Binary XLSX workbook file
     """
-    import logging
-    logger = logging.getLogger(__name__)
-
     case = data_store.get("cases", {}).get(case_id)
     if not case:
-        logger.warning("[API] Case not found: {}".format(case_id))
         raise HTTPException(status_code=404, detail="Investigation case not found")
 
     report = data_store.get("reports", {}).get(case_id)
     if not report:
-        logger.warning("[API] Report not found for case: {}".format(case_id))
         raise HTTPException(status_code=404, detail="Investigation report not found")
 
     # Excel export
     if format.lower() == "excel":
-        logger.info("[API] Excel export requested for case: {}".format(case_id))
-
         try:
             from app.services.excel_report_generator import ExcelReportGenerator
-            from fastapi.responses import Response
 
             # Get transactions
             tx_ids = case.get("transactions", [])
             tx_store = data_store.get("transactions", {})
             transactions = [tx_store[tid] for tid in tx_ids if tid in tx_store]
 
-            logger.debug("[API] Generating Excel workbook with {} transactions".format(len(transactions)))
-
-            # Generate Excel (includes validation)
+            # Generate Excel
             excel_bytes = ExcelReportGenerator.generate(case, report, transactions)
 
-            logger.info("[API] Excel workbook generated successfully: {} bytes".format(len(excel_bytes)))
+            # Return as file download
+            from fastapi.responses import StreamingResponse
+            import io
 
-            # Create filename - NO SPECIAL CHARS
-            safe_case_id = case_id.replace('/', '_').replace('\\', '_').replace('"', '').replace("'", '').replace('-', '_')
-            filename = "Sentinel_Investigation_{}.xlsx".format(safe_case_id)
-
-            logger.debug("[API] Filename: {}".format(filename))
-            logger.debug("[API] Excel bytes length: {}".format(len(excel_bytes)))
-            logger.debug("[API] Excel bytes type: {}".format(type(excel_bytes)))
-            logger.debug("[API] Excel first 10 bytes (hex): {}".format(excel_bytes[:10].hex()))
-
-            # Use direct Response - NOT StreamingResponse
-            # This sends all bytes at once, no async issues
-            response = Response(
-                content=excel_bytes,
-                status_code=200,
+            return StreamingResponse(
+                io.BytesIO(excel_bytes),
                 media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                headers={
-                    "Content-Disposition": 'attachment; filename="{}"'.format(filename),
-                    "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    "Content-Length": str(len(excel_bytes)),
-                    "Cache-Control": "no-cache, no-store, must-revalidate",
-                    "Pragma": "no-cache",
-                    "Expires": "0"
-                }
-            )
-
-            logger.info("[API] Sending Excel file via Response: {} ({} bytes)".format(filename, len(excel_bytes)))
-
-            return response
-
-        except ValueError as ve:
-            logger.error("[API] Excel validation failed for case {}: {}".format(case_id, str(ve)))
-            raise HTTPException(
-                status_code=422,
-                detail="Excel workbook validation failed: {}".format(str(ve))
+                headers={"Content-Disposition": f"attachment; filename=Sentinel_Investigation_{case_id}.xlsx"}
             )
         except Exception as e:
-            logger.error("[API] Excel export failed for case {}: {}".format(case_id, str(e)))
             import traceback
-            logger.error(traceback.format_exc())
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to generate Excel report: {}".format(str(e))
-            )
+            traceback.print_exc()
+            raise HTTPException(status_code=500, detail=f"Failed to generate Excel report: {str(e)}")
 
     # Default: JSON
-    logger.debug("[API] Returning JSON report for case: {}".format(case_id))
     return report
 
 @app.get("/stats")
