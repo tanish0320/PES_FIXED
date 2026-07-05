@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { setRoleGlobal } from '../roleStore';
+import Lightfall from './Lightfall';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -30,12 +31,30 @@ const Login = () => {
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-background z-50 animate-in fade-in duration-700 overflow-hidden">
-      {/* Background Glows */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 blur-[120px] rounded-full" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/5 blur-[120px] rounded-full" />
+    <div className="fixed inset-0 flex items-center justify-center z-50 animate-in fade-in duration-700 overflow-hidden">
+      {/* Lightfall Background */}
+      <div className="absolute inset-0 z-0">
+        <Lightfall
+          colors={['#3B82F6', '#1E40AF', '#7C3AED']}
+          backgroundColor="#0F172A"
+          speed={0.8}
+          streakCount={4}
+          streakWidth={1.2}
+          streakLength={1.5}
+          glow={1.2}
+          density={0.8}
+          twinkle={0.8}
+          zoom={2.5}
+          backgroundGlow={0.8}
+          opacity={0.9}
+          mouseInteraction={true}
+          mouseStrength={0.6}
+          mouseRadius={1.2}
+          mouseDampening={0.2}
+        />
+      </div>
 
-      <div className="w-full max-w-md p-10 rounded-[32px] border border-border bg-card/50 backdrop-blur-xl shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] relative overflow-hidden group">
+      <div className="w-full max-w-md p-10 rounded-[32px] border border-border bg-card/50 backdrop-blur-xl shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] relative overflow-hidden group z-10">
         {/* Animated border line */}
         <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-primary/50 to-transparent animate-pulse" />
         
