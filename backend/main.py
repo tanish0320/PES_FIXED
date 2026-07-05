@@ -106,13 +106,49 @@ def get_investigation_detail(case_id: str) -> Dict[str, Any]:
     }
 
 @app.get("/investigation/{case_id}/report")
-def get_investigation_report(case_id: str) -> Dict[str, Any]:
+def get_investigation_report(case_id: str, format: str = "json") -> Dict[str, Any]:
     """
-    Returns the formatted investigation report JSON.
+    Returns the formatted investigation report in requested format.
+
+    Query params:
+        format: "json" (default), "excel"
     """
+    case = data_store.get("cases", {}).get(case_id)
+    if not case:
+        raise HTTPException(status_code=404, detail="Investigation case not found")
+
     report = data_store.get("reports", {}).get(case_id)
     if not report:
         raise HTTPException(status_code=404, detail="Investigation report not found")
+
+    # Excel export
+    if format.lower() == "excel":
+        try:
+            from app.services.excel_report_generator import ExcelReportGenerator
+
+            # Get transactions
+            tx_ids = case.get("transactions", [])
+            tx_store = data_store.get("transactions", {})
+            transactions = [tx_store[tid] for tid in tx_ids if tid in tx_store]
+
+            # Generate Excel
+            excel_bytes = ExcelReportGenerator.generate(case, report, transactions)
+
+            # Return as file download
+            from fastapi.responses import StreamingResponse
+            import io
+
+            return StreamingResponse(
+                io.BytesIO(excel_bytes),
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": f"attachment; filename=Sentinel_Investigation_{case_id}.xlsx"}
+            )
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(status_code=500, detail=f"Failed to generate Excel report: {str(e)}")
+
+    # Default: JSON
     return report
 
 @app.get("/stats")

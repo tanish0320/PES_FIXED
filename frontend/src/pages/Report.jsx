@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, Printer, FileText, AlertTriangle, CheckCircle, 
-  TrendingUp, Activity, User, CreditCard, Building, ShieldAlert, 
+import {
+  ArrowLeft, Printer, FileText, AlertTriangle, CheckCircle,
+  TrendingUp, Activity, User, CreditCard, Building, ShieldAlert,
   ChevronRight, ChevronDown, Calendar, Landmark, Info, Search, Sparkles,
-  GitBranch, HelpCircle, Layers
+  GitBranch, HelpCircle, Layers, Download, FileSpreadsheet
 } from 'lucide-react';
 import { useDataStore } from '../hooks/useDataStore';
 import { useCopilot } from '../components/CopilotContext';
@@ -100,6 +100,51 @@ export default function Report() {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
+
+  const handleExportPDF = async () => {
+    // PDF export using browser's print functionality
+    setExportDropdownOpen(false);
+    // In the future, can integrate a PDF library like jsPDF
+    window.print();
+  };
+
+  const handleExportExcel = async () => {
+    setExportDropdownOpen(false);
+    try {
+      const API_BASE = import.meta.env.VITE_API_URL || '';
+      const response = await fetch(`${API_BASE}/investigation/${caseId}/report?format=excel`);
+
+      if (!response.ok) {
+        throw new Error(`Export failed: ${response.statusText}`);
+      }
+
+      // Get filename from Content-Disposition header
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = `Sentinel_Investigation_${caseId}.xlsx`;
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename[^;=\n]*=(["\']?)([^"\'\n]*)\1/);
+        if (match) filename = match[2];
+      }
+
+      // Create download link
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(link);
+
+      console.log(`[SENTINEL] Exported Excel report: ${filename}`);
+    } catch (error) {
+      console.error('[SENTINEL] Excel export failed:', error);
+      alert(`Failed to export Excel: ${error.message}`);
+    }
   };
 
   const formatINR = (value) => {
@@ -410,19 +455,43 @@ export default function Report() {
           Back to Investigations
         </button>
         <div className="flex gap-3">
-          <button 
+          <button
             onClick={() => navigate(`/graph/${caseId}`)}
             className="bg-slate-800 hover:bg-slate-750 text-slate-200 px-4 py-2 rounded-lg text-sm font-semibold border border-slate-700 transition-all flex items-center gap-1.5"
           >
             <GitBranch size={14} /> Explore Money Flow Graph
           </button>
-          <button 
-            onClick={handlePrint}
-            className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-lg shadow-blue-900/20 transition-all flex items-center gap-2"
-          >
-            <Printer size={16} />
-            Print Case Brief
-          </button>
+
+          {/* Export Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
+              className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-lg shadow-blue-900/20 transition-all flex items-center gap-2"
+            >
+              <Download size={16} />
+              Export <ChevronDown size={14} className={`transition-transform ${exportDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Dropdown Menu */}
+            {exportDropdownOpen && (
+              <div className="absolute top-full right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50">
+                <button
+                  onClick={handleExportPDF}
+                  className="w-full text-left px-4 py-3 hover:bg-slate-700 text-slate-200 text-sm font-semibold flex items-center gap-2 border-b border-slate-700 transition-colors"
+                >
+                  <FileText size={16} />
+                  Export PDF
+                </button>
+                <button
+                  onClick={handleExportExcel}
+                  className="w-full text-left px-4 py-3 hover:bg-slate-700 text-slate-200 text-sm font-semibold flex items-center gap-2 transition-colors"
+                >
+                  <FileSpreadsheet size={16} />
+                  Export Excel
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
