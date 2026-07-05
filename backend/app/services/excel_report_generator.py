@@ -10,17 +10,24 @@ Architecture:
 - Modular worksheet builders for each section
 - Professional formatting (colors, borders, fonts)
 - Investigator-ready workbook structure
+
+Important: All generated workbooks must pass openpyxl validation before being returned.
+This ensures compatibility with Microsoft Excel and other XLSX readers.
 """
 
+import logging
+import io
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.styles import (
     Font, PatternFill, Alignment, Border, Side,
     numbers
 )
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.table import Table, TableStyleInfo
+
+logger = logging.getLogger(__name__)
 
 
 class ExcelReportGenerator:
@@ -113,34 +120,116 @@ class ExcelReportGenerator:
             transactions: List of transactions
 
         Returns:
-            Bytes of Excel workbook
+            Bytes of Excel workbook (validated XLSX format)
+
+        Raises:
+            ValueError: If generated workbook is invalid
         """
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Executive Summary"
-
         case_id = case.get("account_id", "UNKNOWN")
+        logger.info("[EXCEL] Starting workbook generation for case: {}".format(case_id))
 
-        # Build worksheets in order
-        cls._build_executive_summary(wb, case, report)
-        cls._build_investigation_summary(wb, report)
-        cls._build_transactions(wb, transactions)
-        cls._build_high_risk_transactions(wb, report)
-        cls._build_detected_patterns(wb, report)
-        cls._build_money_flow(wb, report)
-        cls._build_entities(wb, report)
-        cls._build_timeline(wb, report)
-        cls._build_beneficiaries(wb, report)
-        cls._build_graph_statistics(wb, report)
-        cls._build_parser_statistics(wb, report)
-        cls._build_recommendations(wb, report)
+        try:
+            # Create workbook
+            logger.debug("[EXCEL] Creating new workbook")
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Executive Summary"
 
-        # Save to bytes
-        import io
-        output = io.BytesIO()
-        wb.save(output)
-        output.seek(0)
-        return output.getvalue()
+            # Build worksheets in order
+            logger.debug("[EXCEL] Building Executive Summary sheet")
+            cls._build_executive_summary(wb, case, report)
+
+            logger.debug("[EXCEL] Building Investigation Summary sheet")
+            cls._build_investigation_summary(wb, report)
+
+            logger.debug("[EXCEL] Building Transactions sheet ({} transactions)".format(len(transactions)))
+            cls._build_transactions(wb, transactions)
+
+            logger.debug("[EXCEL] Building High Risk Transactions sheet")
+            cls._build_high_risk_transactions(wb, report)
+
+            logger.debug("[EXCEL] Building Detected Patterns sheet")
+            cls._build_detected_patterns(wb, report)
+
+            logger.debug("[EXCEL] Building Money Flow sheet")
+            cls._build_money_flow(wb, report)
+
+            logger.debug("[EXCEL] Building Entities sheet")
+            cls._build_entities(wb, report)
+
+            logger.debug("[EXCEL] Building Timeline sheet")
+            cls._build_timeline(wb, report)
+
+            logger.debug("[EXCEL] Building Beneficiaries sheet")
+            cls._build_beneficiaries(wb, report)
+
+            logger.debug("[EXCEL] Building Graph Statistics sheet")
+            cls._build_graph_statistics(wb, report)
+
+            logger.debug("[EXCEL] Building Parser Statistics sheet")
+            cls._build_parser_statistics(wb, report)
+
+            logger.debug("[EXCEL] Building Recommendations sheet")
+            cls._build_recommendations(wb, report)
+
+            logger.info("[EXCEL] Created {} worksheets".format(len(wb.sheetnames)))
+
+            # Save to bytes
+            logger.debug("[EXCEL] Saving workbook to BytesIO")
+            output = io.BytesIO()
+            wb.save(output)
+            output.seek(0)
+            excel_bytes = output.getvalue()
+            logger.info("[EXCEL] Workbook saved: {} bytes".format(len(excel_bytes)))
+
+            # Validate workbook can be reopened
+            logger.debug("[EXCEL] Validating workbook integrity")
+            cls._validate_workbook(excel_bytes, case_id)
+            logger.info("[EXCEL] Workbook validation passed")
+
+            return excel_bytes
+
+        except Exception as e:
+            logger.error("[EXCEL] Failed to generate workbook for case {}: {}".format(case_id, str(e)))
+            raise
+
+    @classmethod
+    def _validate_workbook(cls, excel_bytes: bytes, case_id: str) -> None:
+        """
+        Validate that generated workbook is a valid XLSX file.
+
+        Args:
+            excel_bytes: Binary workbook data
+            case_id: Case ID for logging
+
+        Raises:
+            ValueError: If workbook is invalid
+        """
+        logger.debug("[EXCEL] Validating workbook for case: {}".format(case_id))
+
+        try:
+            # Attempt to load workbook from bytes
+            test_io = io.BytesIO(excel_bytes)
+            test_wb = load_workbook(test_io)
+
+            # Verify it has sheets
+            if not test_wb.sheetnames:
+                raise ValueError("Workbook contains no sheets")
+
+            logger.debug("[EXCEL] Workbook has {} sheets: {}".format(
+                len(test_wb.sheetnames),
+                ", ".join(test_wb.sheetnames)
+            ))
+
+            # Verify Executive Summary sheet exists
+            if "Executive Summary" not in test_wb.sheetnames:
+                raise ValueError("Executive Summary sheet not found")
+
+            logger.debug("[EXCEL] All validation checks passed for case: {}".format(case_id))
+
+        except Exception as e:
+            logger.error("[EXCEL] Validation failed for case {}: {}".format(case_id, str(e)))
+            raise ValueError("Generated workbook is invalid: {}".format(str(e)))
 
     @classmethod
     def _build_executive_summary(cls, wb: Workbook, case: Dict[str, Any], report: Dict[str, Any]):

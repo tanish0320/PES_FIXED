@@ -112,43 +112,78 @@ def get_investigation_report(case_id: str, format: str = "json") -> Dict[str, An
 
     Query params:
         format: "json" (default), "excel"
+
+    Returns:
+        - JSON format: Investigation report object
+        - Excel format: Binary XLSX workbook file
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
     case = data_store.get("cases", {}).get(case_id)
     if not case:
+        logger.warning("[API] Case not found: {}".format(case_id))
         raise HTTPException(status_code=404, detail="Investigation case not found")
 
     report = data_store.get("reports", {}).get(case_id)
     if not report:
+        logger.warning("[API] Report not found for case: {}".format(case_id))
         raise HTTPException(status_code=404, detail="Investigation report not found")
 
     # Excel export
     if format.lower() == "excel":
+        logger.info("[API] Excel export requested for case: {}".format(case_id))
+
         try:
             from app.services.excel_report_generator import ExcelReportGenerator
+            from fastapi.responses import Response
+            import io
 
             # Get transactions
             tx_ids = case.get("transactions", [])
             tx_store = data_store.get("transactions", {})
             transactions = [tx_store[tid] for tid in tx_ids if tid in tx_store]
 
-            # Generate Excel
+            logger.debug("[API] Generating Excel workbook with {} transactions".format(len(transactions)))
+
+            # Generate Excel (includes validation)
             excel_bytes = ExcelReportGenerator.generate(case, report, transactions)
 
-            # Return as file download
-            from fastapi.responses import StreamingResponse
-            import io
+            logger.info("[API] Excel workbook generated successfully: {} bytes".format(len(excel_bytes)))
 
-            return StreamingResponse(
-                io.BytesIO(excel_bytes),
+            # Return using Response with proper MIME type
+            filename = "Sentinel_Investigation_{}.xlsx".format(case_id)
+
+            response = Response(
+                content=excel_bytes,
                 media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                headers={"Content-Disposition": f"attachment; filename=Sentinel_Investigation_{case_id}.xlsx"}
+                headers={
+                    "Content-Disposition": "attachment; filename=\"{}\"".format(filename),
+                    "Content-Length": str(len(excel_bytes))
+                }
+            )
+
+            logger.info("[API] Sending Excel file: {} ({} bytes)".format(filename, len(excel_bytes)))
+
+            return response
+
+        except ValueError as ve:
+            logger.error("[API] Excel validation failed for case {}: {}".format(case_id, str(ve)))
+            raise HTTPException(
+                status_code=422,
+                detail="Excel workbook validation failed: {}".format(str(ve))
             )
         except Exception as e:
+            logger.error("[API] Excel export failed for case {}: {}".format(case_id, str(e)))
             import traceback
             traceback.print_exc()
-            raise HTTPException(status_code=500, detail=f"Failed to generate Excel report: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to generate Excel report: {}".format(str(e))
+            )
 
     # Default: JSON
+    logger.debug("[API] Returning JSON report for case: {}".format(case_id))
     return report
 
 @app.get("/stats")
