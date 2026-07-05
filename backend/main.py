@@ -136,9 +136,8 @@ def get_investigation_report(case_id: str, format: str = "json") -> Dict[str, An
 
         try:
             from app.services.excel_report_generator import ExcelReportGenerator
-            from fastapi.responses import FileResponse
-            import tempfile
-            import os
+            from fastapi.responses import StreamingResponse
+            import io
 
             # Get transactions
             tx_ids = case.get("transactions", [])
@@ -152,47 +151,31 @@ def get_investigation_report(case_id: str, format: str = "json") -> Dict[str, An
 
             logger.info("[API] Excel workbook generated successfully: {} bytes".format(len(excel_bytes)))
 
-            # Create temporary file with proper XLSX extension
+            # Create filename
             safe_case_id = case_id.replace('/', '-').replace('\\', '-').replace('"', '').replace("'", '')
             filename = "Sentinel_Investigation_{}.xlsx".format(safe_case_id)
 
-            # Use system temp directory for temporary file
-            temp_dir = tempfile.gettempdir()
-            temp_path = os.path.join(temp_dir, filename)
+            logger.debug("[API] Preparing to send: {}".format(filename))
 
-            logger.debug("[API] Writing to temp file: {}".format(temp_path))
+            # Create BytesIO stream
+            output_stream = io.BytesIO(excel_bytes)
 
-            # Write Excel bytes to file
-            with open(temp_path, 'wb') as f:
-                bytes_written = f.write(excel_bytes)
-
-            # Verify file was written correctly
-            if bytes_written != len(excel_bytes):
-                raise ValueError("File write mismatch: wrote {} of {} bytes".format(bytes_written, len(excel_bytes)))
-
-            if not os.path.exists(temp_path):
-                raise ValueError("Temp file was not created")
-
-            file_size = os.path.getsize(temp_path)
-            if file_size != len(excel_bytes):
-                raise ValueError("File size mismatch: expected {} bytes, got {} bytes".format(len(excel_bytes), file_size))
-
-            logger.info("[API] Temp file created successfully: {} bytes at {}".format(file_size, temp_path))
-
-            # Return using FileResponse which properly handles file downloads
-            # FileResponse automatically sets correct headers for file download
-            response = FileResponse(
-                path=temp_path,
-                filename=filename,
+            # Return using StreamingResponse with proper headers
+            # This is the most reliable way to send binary files in FastAPI
+            response = StreamingResponse(
+                iter([excel_bytes]),  # Send bytes directly in one chunk
                 media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 headers={
+                    "Content-Disposition": 'attachment; filename="{}"'.format(filename),
+                    "Content-Length": str(len(excel_bytes)),
+                    "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     "Cache-Control": "no-cache, no-store, must-revalidate",
                     "Pragma": "no-cache",
                     "Expires": "0"
                 }
             )
 
-            logger.info("[API] Sending Excel file: {} ({} bytes)".format(filename, file_size))
+            logger.info("[API] Sending Excel file: {} ({} bytes)".format(filename, len(excel_bytes)))
 
             return response
 
