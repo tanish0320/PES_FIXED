@@ -285,141 +285,185 @@ export default function Dashboard() {
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
         {/* Timeline Chart */}
-        <div className="bg-slate-900 border border-slate-850 rounded-xl p-6 shadow-xl">
-          <h3 className="text-xs font-black uppercase tracking-wider mb-6 text-slate-400 flex items-center gap-2">
-            <TrendingUp size={14} className="text-indigo-400" /> Scanning Volume History (Interactive)
-          </h3>
-          <div className="h-[280px] w-full">
-            {timelineData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart 
-                  data={timelineData}
-                  onClick={(e) => e && e.activePayload && handleChartClick('timeline', e.activePayload[0].payload)}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                  <XAxis dataKey="date" stroke="#64748b" fontSize={9} tickLine={false} />
-                  <YAxis stroke="#64748b" fontSize={9} tickLine={false} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#090d16', borderColor: '#1e293b', borderRadius: '8px' }}
-                    itemStyle={{ fontSize: '10px', color: '#f1f5f9' }}
-                    labelStyle={{ fontSize: '10px', color: '#64748b' }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="volume" 
-                    stroke="#4f46e5" 
-                    strokeWidth={3} 
-                    dot={{ fill: '#4f46e5', r: 3 }} 
-                    activeDot={{ r: 6 }}
-                    className="cursor-pointer"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-xs text-slate-600 italic">
-                No activity records available.
-              </div>
-            )}
+        <BorderGlow
+          borderRadius={12}
+          glowColor="225 100 65"
+          colors={['#3b82f6', '#6366f1', '#a855f7']}
+          backgroundColor="#0f172a"
+          glowRadius={25}
+          glowIntensity={1.0}
+          edgeSensitivity={30}
+          className="w-full"
+        >
+          <div className="p-6 flex flex-col h-full w-full">
+            <h3 className="text-xs font-black uppercase tracking-wider mb-6 text-slate-400 flex items-center gap-2">
+              <TrendingUp size={14} className="text-indigo-400" /> Scanning Volume History (Interactive)
+            </h3>
+            <div className="h-[280px] w-full">
+              {timelineData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart 
+                    data={timelineData}
+                    onClick={(e) => e && e.activePayload && handleChartClick('timeline', e.activePayload[0].payload)}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                    <XAxis dataKey="date" stroke="#64748b" fontSize={9} tickLine={false} />
+                    <YAxis stroke="#64748b" fontSize={9} tickLine={false} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#090d16', borderColor: '#1e293b', borderRadius: '8px' }}
+                      itemStyle={{ fontSize: '10px', color: '#f1f5f9' }}
+                      labelStyle={{ fontSize: '10px', color: '#64748b' }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="volume" 
+                      stroke="#4f46e5" 
+                      strokeWidth={3} 
+                      dot={{ fill: '#4f46e5', r: 3 }} 
+                      activeDot={{ r: 6 }}
+                      className="cursor-pointer"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-xs text-slate-600 italic">
+                  No activity records available.
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </BorderGlow>
 
         {/* Risk Distribution Chart */}
-        <div className="bg-slate-900 border border-slate-850 rounded-xl p-6 shadow-xl">
-          <h3 className="text-xs font-black uppercase tracking-wider mb-6 text-slate-400 flex items-center gap-2">
-            <BarChart3 size={14} className="text-indigo-400" /> Case Risk Profile Distribution (Interactive)
-          </h3>
-          <div className="h-[280px] w-full">
-            {riskData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart 
-                  data={riskData}
-                  onClick={(e) => e && e.activePayload && handleChartClick('risk', e.activePayload[0].payload)}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                  <XAxis dataKey="name" stroke="#64748b" fontSize={9} tickLine={false} />
-                  <YAxis stroke="#64748b" fontSize={9} tickLine={false} />
-                  <Tooltip 
-                    cursor={{fill: 'transparent'}}
-                    contentStyle={{ backgroundColor: '#090d16', borderColor: '#1e293b', borderRadius: '8px' }}
-                  />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={32} className="cursor-pointer">
-                    {riskData.map((entry, idx) => (
-                      <Cell key={`cell-${idx}`} fill={RISK_COLORS[entry.name] || '#64748b'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-xs text-slate-600 italic">
-                No case risk metrics available.
-              </div>
-            )}
+        <BorderGlow
+          borderRadius={12}
+          glowColor="225 100 65"
+          colors={['#3b82f6', '#6366f1', '#a855f7']}
+          backgroundColor="#0f172a"
+          glowRadius={25}
+          glowIntensity={1.0}
+          edgeSensitivity={30}
+          className="w-full"
+        >
+          <div className="p-6 flex flex-col h-full w-full">
+            <h3 className="text-xs font-black uppercase tracking-wider mb-6 text-slate-400 flex items-center gap-2">
+              <BarChart3 size={14} className="text-indigo-400" /> Case Risk Profile Distribution (Interactive)
+            </h3>
+            <div className="h-[280px] w-full">
+              {riskData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart 
+                    data={riskData}
+                    onClick={(e) => e && e.activePayload && handleChartClick('risk', e.activePayload[0].payload)}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                    <XAxis dataKey="name" stroke="#64748b" fontSize={9} tickLine={false} />
+                    <YAxis stroke="#64748b" fontSize={9} tickLine={false} />
+                    <Tooltip 
+                      cursor={{fill: 'transparent'}}
+                      contentStyle={{ backgroundColor: '#090d16', borderColor: '#1e293b', borderRadius: '8px' }}
+                    />
+                    <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={32} className="cursor-pointer">
+                      {riskData.map((entry, idx) => (
+                        <Cell key={`cell-${idx}`} fill={RISK_COLORS[entry.name] || '#64748b'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-xs text-slate-600 italic">
+                  No case risk metrics available.
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </BorderGlow>
 
         {/* Channel Pie Chart */}
-        <div className="bg-slate-900 border border-slate-850 rounded-xl p-6 shadow-xl">
-          <h3 className="text-xs font-black uppercase tracking-wider mb-6 text-slate-400 flex items-center gap-2">
-            <Layers size={14} className="text-indigo-400" /> Transaction Channel Distribution (Interactive)
-          </h3>
-          <div className="h-[280px] w-full">
-            {channelData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={channelData}
-                    innerRadius={50}
-                    outerRadius={80}
-                    paddingAngle={4}
-                    dataKey="value"
-                    className="cursor-pointer"
-                    onClick={(data) => handleChartClick('channel', data)}
-                  >
-                    {channelData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={CHANNEL_COLORS[index % CHANNEL_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend verticalAlign="bottom" height={36} formatter={(value) => <span className="text-[10px] text-slate-400 font-bold uppercase">{value}</span>} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-xs text-slate-600 italic">
-                No transaction channels recorded.
-              </div>
-            )}
+        <BorderGlow
+          borderRadius={12}
+          glowColor="225 100 65"
+          colors={['#3b82f6', '#6366f1', '#a855f7']}
+          backgroundColor="#0f172a"
+          glowRadius={25}
+          glowIntensity={1.0}
+          edgeSensitivity={30}
+          className="w-full"
+        >
+          <div className="p-6 flex flex-col h-full w-full">
+            <h3 className="text-xs font-black uppercase tracking-wider mb-6 text-slate-400 flex items-center gap-2">
+              <Layers size={14} className="text-indigo-400" /> Transaction Channel Distribution (Interactive)
+            </h3>
+            <div className="h-[280px] w-full">
+              {channelData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={channelData}
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={4}
+                      dataKey="value"
+                      className="cursor-pointer"
+                      onClick={(data) => handleChartClick('channel', data)}
+                    >
+                      {channelData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={CHANNEL_COLORS[index % CHANNEL_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend verticalAlign="bottom" height={36} formatter={(value) => <span className="text-[10px] text-slate-400 font-bold uppercase">{value}</span>} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-xs text-slate-600 italic">
+                  No transaction channels recorded.
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </BorderGlow>
 
         {/* Pattern Prevalence Chart */}
-        <div className="bg-slate-900 border border-slate-850 rounded-xl p-6 shadow-xl">
-          <h3 className="text-xs font-black uppercase tracking-wider mb-6 text-slate-400 flex items-center gap-2">
-            <ShieldAlert size={14} className="text-indigo-400" /> Most Common Anomaly Triggers (Interactive)
-          </h3>
-          <div className="h-[280px] w-full">
-            {patternData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart 
-                  data={patternData} 
-                  layout="vertical"
-                  onClick={(e) => e && e.activePayload && handleChartClick('pattern', e.activePayload[0].payload)}
-                >
-                  <XAxis type="number" stroke="#64748b" fontSize={9} tickLine={false} />
-                  <YAxis dataKey="name" type="category" stroke="#64748b" fontSize={8} width={120} tickLine={false} />
-                  <Tooltip 
-                    cursor={{fill: 'transparent'}}
-                    contentStyle={{ backgroundColor: '#090d16', borderColor: '#1e293b', borderRadius: '8px' }}
-                  />
-                  <Bar dataKey="count" fill="#4f46e5" radius={[0, 4, 4, 0]} barSize={12} className="cursor-pointer" />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-xs text-slate-600 italic">
-                No pattern triggers identified yet.
-              </div>
-            )}
+        <BorderGlow
+          borderRadius={12}
+          glowColor="225 100 65"
+          colors={['#3b82f6', '#6366f1', '#a855f7']}
+          backgroundColor="#0f172a"
+          glowRadius={25}
+          glowIntensity={1.0}
+          edgeSensitivity={30}
+          className="w-full"
+        >
+          <div className="p-6 flex flex-col h-full w-full">
+            <h3 className="text-xs font-black uppercase tracking-wider mb-6 text-slate-400 flex items-center gap-2">
+              <ShieldAlert size={14} className="text-indigo-400" /> Most Common Anomaly Triggers (Interactive)
+            </h3>
+            <div className="h-[280px] w-full">
+              {patternData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart 
+                    data={patternData} 
+                    layout="vertical"
+                    onClick={(e) => e && e.activePayload && handleChartClick('pattern', e.activePayload[0].payload)}
+                  >
+                    <XAxis type="number" stroke="#64748b" fontSize={9} tickLine={false} />
+                    <YAxis dataKey="name" type="category" stroke="#64748b" fontSize={8} width={120} tickLine={false} />
+                    <Tooltip 
+                      cursor={{fill: 'transparent'}}
+                      contentStyle={{ backgroundColor: '#090d16', borderColor: '#1e293b', borderRadius: '8px' }}
+                    />
+                    <Bar dataKey="count" fill="#4f46e5" radius={[0, 4, 4, 0]} barSize={12} className="cursor-pointer" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-xs text-slate-600 italic">
+                  No pattern triggers identified yet.
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </BorderGlow>
 
       </section>
 
