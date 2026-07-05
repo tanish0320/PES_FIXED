@@ -77,9 +77,9 @@ export default function Upload() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[85vh] p-6 text-gray-100 relative overflow-hidden">
-      {/* LightPillar Background */}
-      <div className="fixed inset-0 z-0">
+    <div className="flex flex-col items-center justify-center min-h-[85vh] p-6 text-gray-100 relative overflow-hidden bg-slate-950">
+      {/* LightPillar Background - Only in Content Area */}
+      <div className="absolute inset-0 z-0">
         <LightPillar
           topColor="#3B82F6"
           bottomColor="#1E40AF"
