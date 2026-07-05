@@ -37,20 +37,20 @@ const Login = () => {
         <Lightfall
           colors={['#3B82F6', '#1E40AF', '#7C3AED']}
           backgroundColor="#0F172A"
-          speed={0.5}
-          streakCount={1}
-          streakWidth={0.8}
-          streakLength={1}
-          glow={0.8}
-          density={0.2}
-          twinkle={0.5}
-          zoom={3}
-          backgroundGlow={0.6}
-          opacity={0.7}
+          speed={0.6}
+          streakCount={2}
+          streakWidth={0.9}
+          streakLength={1.2}
+          glow={0.95}
+          density={0.4}
+          twinkle={0.6}
+          zoom={2.8}
+          backgroundGlow={0.7}
+          opacity={0.8}
           mouseInteraction={true}
-          mouseStrength={0.4}
+          mouseStrength={0.5}
           mouseRadius={1.2}
-          mouseDampening={0.3}
+          mouseDampening={0.25}
         />
       </div>
 
