@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload as UploadIcon, FileText, CheckCircle, AlertTriangle, Play, Loader2 } from 'lucide-react';
 import { useDataStore } from '../hooks/useDataStore';
-import LightPillar from '../components/LightPillar';
+import Particles from '../components/Particles';
 
 export default function Upload() {
   const navigate = useNavigate();
@@ -78,23 +78,21 @@ export default function Upload() {
 
   return (
     <div className="w-full min-h-screen flex flex-col items-center justify-center text-gray-100 relative bg-slate-950 overflow-hidden">
-      {/* Background Layer - Centered with content */}
-      <div className="absolute inset-0 z-0 w-full h-full flex items-center justify-center pointer-events-none">
-        <div className="w-full h-full">
-          <LightPillar
-            topColor="#3B82F6"
-            bottomColor="#1E40AF"
-            intensity={0.7}
-            rotationSpeed={0.3}
-            glowAmount={0.006}
-            pillarWidth={3.0}
-            pillarHeight={0.4}
-            noiseIntensity={0.5}
-            interactive={false}
-            mixBlendMode="normal"
-            quality="high"
-          />
-        </div>
+      {/* Background Layer - Particles */}
+      <div className="absolute inset-0 z-0 w-full h-full pointer-events-none">
+        <Particles
+          particleCount={150}
+          particleSpread={8}
+          speed={0.05}
+          particleColors={['#3B82F6', '#06B6D4', '#8B5CF6']}
+          moveParticlesOnHover={false}
+          alphaParticles={true}
+          particleBaseSize={80}
+          sizeRandomness={0.8}
+          cameraDistance={18}
+          disableRotation={false}
+          pixelRatio={1}
+        />
       </div>
 
       {/* Dark Overlay - Improves readability */}
