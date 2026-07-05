@@ -142,11 +142,11 @@ export default function Upload() {
       {/* Particles Background - Only in Content Area */}
       <div className="absolute inset-0 z-0">
         <Particles
-          particleColors={["#ffffff", "#3b82f6", "#60a5fa"]}
-          particleCount={250}
-          particleSpread={12}
-          speed={0.1}
-          particleBaseSize={80}
+          particleColors={["#ffffff", "#00f0ff", "#38bdf8", "#86efac", "#a5f3fc"]}
+          particleCount={400}
+          particleSpread={13}
+          speed={0.12}
+          particleBaseSize={150}
           moveParticlesOnHover={true}
           alphaParticles={true}
           disableRotation={false}
