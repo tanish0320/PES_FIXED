@@ -9,7 +9,7 @@ import Cases from './pages/Cases';
 import Graph from './pages/Graph';
 import Upload from './pages/Upload';
 import Report from './pages/Report';
-import CrossCaseIntelligence from './pages/CrossCaseIntelligence';
+
 import FinancialIntelligence from './pages/FinancialIntelligence';
 
 import ErrorBoundary from './components/ErrorBoundary';
@@ -180,15 +180,7 @@ const NavigationSidebar = ({ handleLogout, role }) => {
           <ShieldAlert size={16} />
           Investigations
         </Link>
-        {cases.length > 1 && (
-          <Link
-            to="/cross-case-intelligence"
-            className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${getActiveCls('/cross-case-intelligence')}`}
-          >
-            <GitBranch size={16} />
-            Cross-Case Intelligence
-          </Link>
-        )}
+
         <Link
           to="/financial-intelligence"
           className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${getActiveCls('/financial-intelligence')}`}
@@ -250,9 +242,7 @@ const AppContent = () => {
     } else if (path === '/upload') {
       copilotContext.setCurrentPage('upload');
       copilotContext.setCurrentInvestigation(null);
-    } else if (path === '/cross-case-intelligence') {
-      copilotContext.setCurrentPage('cross-case-intelligence');
-    }
+
   }, [location.pathname, role]);
 
   if (!role) {
@@ -278,7 +268,7 @@ const AppContent = () => {
           <Route path="/investigations" element={<ErrorBoundary><Cases /></ErrorBoundary>} />
           <Route path="/graph/:caseId" element={<ErrorBoundary><Graph /></ErrorBoundary>} />
           <Route path="/report/:caseId" element={<ErrorBoundary><Report /></ErrorBoundary>} />
-          <Route path="/cross-case-intelligence" element={<ErrorBoundary><CrossCaseIntelligence /></ErrorBoundary>} />
+
           <Route path="/financial-intelligence" element={<ErrorBoundary><FinancialIntelligence /></ErrorBoundary>} />
         </Routes>
       </main>
