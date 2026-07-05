@@ -525,11 +525,7 @@ export default function RiskExplanationDrawer({
         <button
           onClick={() => {
             const txIds = linkedTxs.map(t => t.tx_id);
-            const connectedNodeIds = Array.from(new Set(
-              linkedTxs.flatMap(t => [t.sender_account, t.receiver_account])
-                .filter(id => id && id !== 'external')
-            ));
-            onHighlightOnGraph?.(txIds, connectedNodeIds);
+            onHighlightOnGraph?.(txIds, [nodeId]);
           }}
           className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-lg text-xs shadow-md transition-all text-center"
         >

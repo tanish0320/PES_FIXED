@@ -419,18 +419,19 @@ const GraphCanvas = forwardRef(({
         cy.elements().removeClass('highlighted-trail').removeClass('dimmed');
         cy.elements().addClass('dimmed');
 
-        // Highlight nodes by direct ID lookup (Cytoscape node ID = accountId)
+        // Highlight selected node(s) + their direct edges + immediate endpoint nodes only
         nodeIds.forEach(nodeId => {
           const node = cy.getElementById(String(nodeId));
           if (node.length > 0) {
             node.removeClass('dimmed').addClass('highlighted-trail');
-            // Also highlight all their connected edges + neighbor nodes
-            node.connectedEdges().removeClass('dimmed').addClass('highlighted-trail');
-            node.connectedEdges().connectedNodes().removeClass('dimmed').addClass('highlighted-trail');
+            const directEdges = node.connectedEdges();
+            directEdges.removeClass('dimmed').addClass('highlighted-trail');
+            // Only the immediate other-end nodes — not their further edges
+            directEdges.connectedNodes().removeClass('dimmed').addClass('highlighted-trail');
           }
         });
 
-        // Also highlight by txId in case nodeIds are missing some edges
+        // Also highlight edges by txId + their two endpoint nodes
         txIds.forEach(txId => {
           const edge = cy.getElementById(String(txId));
           if (edge.length > 0) {
