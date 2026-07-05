@@ -1,22 +1,15 @@
 """
-SENTINEL Excel Report Generator - Data-Centric Format
-=====================================================
-Transforms investigation data into professional analytical Excel workbooks.
-Designed for auditors, forensic accountants, and investigators.
-
-Format:
-- Rows: Individual transactions, entities, or records
-- Columns: Feature names, metrics, amounts, dates
-- Proper tabular format for data analysis and pivot tables
+SENTINEL Excel Report Generator - Data-Centric Format with Debugging
+===================================================================
 """
 
 import logging
 import io
+import os
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.utils import get_column_letter
 
 logger = logging.getLogger(__name__)
 
@@ -36,32 +29,10 @@ class ExcelReportGenerator:
 
     ALT_FILL = PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid")
 
-    @staticmethod
-    def format_inr(value: float) -> str:
-        """Format number as Indian Rupees."""
-        try:
-            if value is None:
-                return ""
-            val_int = int(value)
-            s = str(val_int)
-            if len(s) <= 3:
-                return "₹{}".format(s)
-            last_three = s[-3:]
-            other_parts = s[:-3]
-            groups = []
-            while other_parts:
-                groups.append(other_parts[-2:])
-                other_parts = other_parts[:-2]
-            groups.reverse()
-            formatted = ",".join(groups) + "," + last_three
-            return "₹{}".format(formatted)
-        except Exception:
-            return "₹{:,.2f}".format(float(value)) if value else ""
-
     @classmethod
     def generate(cls, case: Dict[str, Any], report: Dict[str, Any], transactions: List[Dict[str, Any]]) -> bytes:
         """
-        Generate Excel workbook with data-centric format.
+        Generate Excel workbook with complete debugging.
 
         Args:
             case: Case metadata
@@ -72,70 +43,113 @@ class ExcelReportGenerator:
             Bytes of Excel workbook
         """
         case_id = case.get("account_id", "UNKNOWN")
-        logger.info("[EXCEL] Generating data-centric workbook for case: {}".format(case_id))
+        logger.info("[EXCEL] ===== START EXCEL GENERATION =====")
+        logger.info("[EXCEL] Case ID: {}".format(case_id))
+        logger.info("[EXCEL] Transactions count: {}".format(len(transactions)))
 
         try:
+            # Step 1: Create workbook
+            logger.info("[EXCEL] Step 1: Creating new Workbook object...")
             wb = Workbook()
+            logger.info("[EXCEL] ✓ Workbook created successfully")
+            logger.info("[EXCEL]   Type: {}".format(type(wb)))
+            logger.info("[EXCEL]   Default sheet: {}".format(wb.active.title))
+
+            # Step 2: Build sheets
+            logger.info("[EXCEL] Step 2: Building worksheets...")
+
             ws = wb.active
             ws.title = "Case Summary"
-
-            # Build worksheets
-            logger.debug("[EXCEL] Building Case Summary sheet")
             cls._build_case_summary(ws, case, report)
+            logger.info("[EXCEL] ✓ Case Summary built")
 
-            logger.debug("[EXCEL] Building Transactions sheet")
             cls._build_transactions(wb, transactions)
+            logger.info("[EXCEL] ✓ Transactions built")
 
-            logger.debug("[EXCEL] Building Money Flow sheet")
             cls._build_money_flow(wb, case, report, transactions)
+            logger.info("[EXCEL] ✓ Money Flow built")
 
-            logger.debug("[EXCEL] Building Entities sheet")
             cls._build_entities(wb, report)
+            logger.info("[EXCEL] ✓ Entities built")
 
-            logger.debug("[EXCEL] Building Timeline sheet")
             cls._build_timeline(wb, report)
+            logger.info("[EXCEL] ✓ Timeline built")
 
-            logger.debug("[EXCEL] Building Risk Analysis sheet")
             cls._build_risk_analysis(wb, case, report)
+            logger.info("[EXCEL] ✓ Risk Analysis built")
 
-            logger.info("[EXCEL] Created {} worksheets".format(len(wb.sheetnames)))
+            logger.info("[EXCEL] Sheets created: {}".format(", ".join(wb.sheetnames)))
+            logger.info("[EXCEL] Total sheets: {}".format(len(wb.sheetnames)))
 
-            # Save and validate
+            # Step 3: Save to BytesIO
+            logger.info("[EXCEL] Step 3: Saving workbook to BytesIO...")
             output = io.BytesIO()
+            logger.info("[EXCEL]   BytesIO created: {}".format(type(output)))
+
             wb.save(output)
+            logger.info("[EXCEL] ✓ wb.save(output) completed")
+
             output.seek(0)
             excel_bytes = output.getvalue()
+            logger.info("[EXCEL] ✓ Bytes extracted from BytesIO")
+            logger.info("[EXCEL]   Total bytes: {}".format(len(excel_bytes)))
+            logger.info("[EXCEL]   First 20 bytes (hex): {}".format(excel_bytes[:20].hex()))
 
-            logger.info("[EXCEL] Workbook saved: {} bytes".format(len(excel_bytes)))
+            # Check magic bytes (should be PK for ZIP)
+            if excel_bytes[:2] == b'PK':
+                logger.info("[EXCEL] ✓ Magic bytes correct (PK = ZIP format)")
+            else:
+                logger.error("[EXCEL] ✗ Magic bytes WRONG: {} instead of PK".format(excel_bytes[:2]))
+                raise ValueError("Workbook bytes do not have ZIP magic number")
 
-            # Validate
-            cls._validate_workbook(excel_bytes, case_id)
+            # Step 4: Validate by reopening
+            logger.info("[EXCEL] Step 4: Validating workbook by reopening...")
+            try:
+                test_io = io.BytesIO(excel_bytes)
+                logger.info("[EXCEL]   Created test BytesIO with {} bytes".format(len(excel_bytes)))
+
+                test_wb = load_workbook(test_io)
+                logger.info("[EXCEL] ✓ load_workbook() succeeded")
+                logger.info("[EXCEL]   Sheets in reopened workbook: {}".format(", ".join(test_wb.sheetnames)))
+                logger.info("[EXCEL]   Sheet count: {}".format(len(test_wb.sheetnames)))
+
+                if not test_wb.sheetnames:
+                    raise ValueError("Reopened workbook has no sheets")
+
+                # Verify first sheet
+                first_ws = test_wb.active
+                logger.info("[EXCEL] ✓ Accessed first sheet: {}".format(first_ws.title))
+                logger.info("[EXCEL]   Max row: {}".format(first_ws.max_row))
+                logger.info("[EXCEL]   Max column: {}".format(first_ws.max_column))
+
+            except Exception as e:
+                logger.error("[EXCEL] ✗ Validation FAILED: {}".format(str(e)))
+                logger.error("[EXCEL]   Error type: {}".format(type(e).__name__))
+                raise ValueError("Workbook validation failed: {}".format(str(e)))
+
+            # Step 5: Final checks
+            logger.info("[EXCEL] Step 5: Final checks...")
+            logger.info("[EXCEL] ✓ Bytes length: {}".format(len(excel_bytes)))
+            logger.info("[EXCEL] ✓ Bytes type: {}".format(type(excel_bytes)))
+            logger.info("[EXCEL] ✓ Bytes are valid: {}".format(isinstance(excel_bytes, bytes)))
+
+            logger.info("[EXCEL] ===== GENERATION COMPLETE =====")
+            logger.info("[EXCEL] File ready for download: {} bytes".format(len(excel_bytes)))
 
             return excel_bytes
 
         except Exception as e:
-            logger.error("[EXCEL] Failed to generate workbook: {}".format(str(e)))
+            logger.error("[EXCEL] ===== GENERATION FAILED =====")
+            logger.error("[EXCEL] Error: {}".format(str(e)))
+            logger.error("[EXCEL] Type: {}".format(type(e).__name__))
+            import traceback
+            logger.error("[EXCEL] Traceback:\n{}".format(traceback.format_exc()))
             raise
-
-    @classmethod
-    def _validate_workbook(cls, excel_bytes: bytes, case_id: str) -> None:
-        """Validate workbook integrity."""
-        try:
-            test_io = io.BytesIO(excel_bytes)
-            test_wb = load_workbook(test_io)
-            if not test_wb.sheetnames:
-                raise ValueError("Workbook contains no sheets")
-            logger.info("[EXCEL] Workbook validation passed")
-        except Exception as e:
-            logger.error("[EXCEL] Validation failed: {}".format(str(e)))
-            raise ValueError("Workbook validation failed: {}".format(str(e)))
 
     @classmethod
     def _build_case_summary(cls, ws, case: Dict[str, Any], report: Dict[str, Any]):
         """Build case summary sheet."""
         row = 1
-
-        # Title
         ws.merge_cells("A1:D1")
         title = ws["A1"]
         title.value = "Investigation Case Summary"
@@ -145,7 +159,6 @@ class ExcelReportGenerator:
         ws.row_dimensions[1].height = 25
         row = 3
 
-        # Case metadata table
         data = [
             ["Case ID", case.get("account_id", "N/A")],
             ["Account Holder", case.get("holder_name", "N/A")],
@@ -161,7 +174,6 @@ class ExcelReportGenerator:
             ws.cell(row, 2).value = item[1]
             row += 1
 
-        # Executive summary
         row += 1
         ws.cell(row, 1).value = "Executive Summary"
         ws.cell(row, 1).font = Font(bold=True, size=11)
@@ -171,17 +183,6 @@ class ExcelReportGenerator:
         ws.merge_cells("A{}:D{}".format(row, row + 2))
         ws.cell(row, 1).value = summary
         ws.cell(row, 1).alignment = Alignment(wrap_text=True, vertical="top")
-        row += 4
-
-        # Risk explanation
-        ws.cell(row, 1).value = "Risk Explanation"
-        ws.cell(row, 1).font = Font(bold=True, size=11)
-        row += 1
-
-        risk_exp = report.get("risk_explanation", "")
-        ws.merge_cells("A{}:D{}".format(row, row + 2))
-        ws.cell(row, 1).value = risk_exp
-        ws.cell(row, 1).alignment = Alignment(wrap_text=True, vertical="top")
 
         ws.column_dimensions["A"].width = 25
         ws.column_dimensions["B"].width = 50
@@ -190,14 +191,10 @@ class ExcelReportGenerator:
 
     @classmethod
     def _build_transactions(cls, wb: Workbook, transactions: List[Dict[str, Any]]):
-        """Build transactions table with proper columns."""
+        """Build transactions table."""
         ws = wb.create_sheet("Transactions")
 
-        # Headers
-        headers = [
-            "Date", "Time", "Description", "Amount (₹)", "Type",
-            "Channel", "Counterparty", "Risk Score (%)"
-        ]
+        headers = ["Date", "Time", "Description", "Amount (₹)", "Type", "Channel", "Counterparty", "Risk Score (%)"]
 
         for col, header in enumerate(headers, 1):
             cell = ws.cell(1, col)
@@ -209,30 +206,22 @@ class ExcelReportGenerator:
 
         ws.freeze_panes = "A2"
 
-        # Data rows
         for row_idx, tx in enumerate(transactions, 2):
             ws.cell(row_idx, 1).value = tx.get("date", "")
             ws.cell(row_idx, 2).value = tx.get("time", "")
             ws.cell(row_idx, 3).value = tx.get("description", "")
-
-            amount = tx.get("amount", 0)
-            ws.cell(row_idx, 4).value = amount
+            ws.cell(row_idx, 4).value = float(tx.get("amount", 0))
             ws.cell(row_idx, 4).number_format = '#,##0.00'
-
             ws.cell(row_idx, 5).value = "Debit" if tx.get("is_debit", True) else "Credit"
             ws.cell(row_idx, 6).value = tx.get("channel", "")
             ws.cell(row_idx, 7).value = tx.get("sender_account" if tx.get("is_debit") else "receiver_account", "")
-
-            risk = tx.get("risk_score", 0)
-            ws.cell(row_idx, 8).value = risk
+            ws.cell(row_idx, 8).value = float(tx.get("risk_score", 0))
             ws.cell(row_idx, 8).number_format = '0.0'
 
-            # Alternating row colors
             if row_idx % 2 == 0:
                 for col in range(1, 9):
                     ws.cell(row_idx, col).fill = cls.ALT_FILL
 
-        # Column widths
         ws.column_dimensions["A"].width = 12
         ws.column_dimensions["B"].width = 12
         ws.column_dimensions["C"].width = 30
@@ -248,8 +237,6 @@ class ExcelReportGenerator:
         ws = wb.create_sheet("Money Flow Analysis")
 
         row = 1
-
-        # Summary table
         headers = ["Metric", "Value (₹)"]
         for col, header in enumerate(headers, 1):
             cell = ws.cell(row, col)
@@ -263,9 +250,9 @@ class ExcelReportGenerator:
         flow = report.get("money_flow_summary", {})
 
         metrics = [
-            ["Total Inflow", flow.get("total_inflow", 0)],
-            ["Total Outflow", flow.get("total_outflow", 0)],
-            ["Net Flow", flow.get("net_flow", 0)],
+            ["Total Inflow", float(flow.get("total_inflow", 0))],
+            ["Total Outflow", float(flow.get("total_outflow", 0))],
+            ["Net Flow", float(flow.get("net_flow", 0))],
         ]
 
         for metric, value in metrics:
@@ -276,8 +263,6 @@ class ExcelReportGenerator:
             row += 1
 
         row += 2
-
-        # Beneficiaries table
         ws.cell(row, 1).value = "Top Beneficiaries"
         ws.cell(row, 1).font = Font(bold=True, size=11)
         row += 1
@@ -294,9 +279,9 @@ class ExcelReportGenerator:
         row += 1
         for benef in report.get("top_beneficiaries", []):
             ws.cell(row, 1).value = benef.get("name", "")
-            ws.cell(row, 2).value = benef.get("total_received", 0)
+            ws.cell(row, 2).value = float(benef.get("total_received", 0))
             ws.cell(row, 2).number_format = '#,##0.00'
-            ws.cell(row, 3).value = benef.get("tx_count", 0)
+            ws.cell(row, 3).value = int(benef.get("tx_count", 0))
             row += 1
 
         ws.column_dimensions["A"].width = 25
@@ -325,16 +310,14 @@ class ExcelReportGenerator:
             if not entity_list:
                 continue
 
-            # Section header
             ws.cell(row, 1).value = entity_type
             ws.cell(row, 1).font = Font(bold=True, size=11, color="FFFFFF")
             ws.cell(row, 1).fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
             row += 1
 
-            # Entity data
             for entity in entity_list:
                 ws.cell(row, 1).value = entity.get("value", "")
-                ws.cell(row, 2).value = entity.get("occurrences", 1)
+                ws.cell(row, 2).value = int(entity.get("occurrences", 1))
                 row += 1
 
             row += 1
@@ -363,7 +346,7 @@ class ExcelReportGenerator:
             ws.cell(row, 1).value = event.get("date", "")
             ws.cell(row, 2).value = event.get("time", "")
             ws.cell(row, 3).value = event.get("event", "")
-            ws.cell(row, 4).value = event.get("amount", 0)
+            ws.cell(row, 4).value = float(event.get("amount", 0)) if event.get("amount") else 0
             ws.cell(row, 4).number_format = '#,##0.00'
             ws.cell(row, 5).value = "Yes" if event.get("risk_flag") else "No"
             ws.cell(row, 6).value = event.get("pattern", "")
@@ -387,8 +370,6 @@ class ExcelReportGenerator:
         ws = wb.create_sheet("Risk Analysis")
 
         row = 1
-
-        # Risk metrics
         headers = ["Metric", "Value"]
         for col, header in enumerate(headers, 1):
             cell = ws.cell(row, col)
@@ -414,8 +395,6 @@ class ExcelReportGenerator:
             row += 1
 
         row += 2
-
-        # Detected patterns
         ws.cell(row, 1).value = "Detected Patterns"
         ws.cell(row, 1).font = Font(bold=True, size=11)
         row += 1
@@ -433,7 +412,7 @@ class ExcelReportGenerator:
         for pattern in report.get("detected_patterns", []):
             ws.cell(row, 1).value = pattern.get("name", "")
             ws.cell(row, 2).value = pattern.get("severity", "").upper()
-            ws.cell(row, 3).value = pattern.get("confidence", 0)
+            ws.cell(row, 3).value = float(pattern.get("confidence", 0))
             ws.cell(row, 3).number_format = '0.0'
             ws.cell(row, 4).value = pattern.get("description", "")
             row += 1
